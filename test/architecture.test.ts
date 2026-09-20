@@ -137,6 +137,22 @@ describe('kelime yasakları', () => {
     expect(rules).toEqual([]);
   });
 
+  it('sim-math runtime kodunda libm kullanımını yakalar', async () => {
+    const rules = await rulesTriggeredBy(
+      'packages/sim-math/src/__probe__.ts',
+      'export const s = Math.sin(1);\n',
+    );
+    expect(rules).toContain('no-restricted-syntax');
+  });
+
+  it('sim-math testlerinde libm referansına izin verir', async () => {
+    const rules = await rulesTriggeredBy(
+      'packages/sim-math/test/__probe__.test.ts',
+      'export const s = Math.sin(1);\n',
+    );
+    expect(rules).toEqual([]);
+  });
+
   it('içerik isimlerini her pakette yakalar', async () => {
     for (const file of [SIM_FILE, ENGINE_FILE, 'packages/schema/src/__probe__.ts']) {
       const rules = await rulesTriggeredBy(file, 'export const name = "mordor";\n');
