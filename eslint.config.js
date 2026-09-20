@@ -26,8 +26,8 @@ const ALL_PACKAGES = [
  */
 const LAYERS = {
   'sim-math': { dir: 'packages/sim-math', allow: [] },
-  schema: { dir: 'packages/schema', allow: [] },
-  modloader: { dir: 'packages/modloader', allow: ['schema'] },
+  schema: { dir: 'packages/schema', allow: ['sim-math'] },
+  modloader: { dir: 'packages/modloader', allow: ['schema', 'sim-math'] },
   'core-sim': { dir: 'packages/core-sim', allow: ['sim-math', 'schema'] },
   engine: { dir: 'packages/engine', allow: [] },
   'core-present': {
@@ -203,6 +203,15 @@ export default defineConfig(
     },
     rules: {
       '@typescript-eslint/no-explicit-any': 'error',
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+          ignoreRestSiblings: true,
+        },
+      ],
       '@typescript-eslint/ban-ts-comment': [
         'error',
         {

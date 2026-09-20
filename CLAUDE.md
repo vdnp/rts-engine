@@ -26,8 +26,8 @@ Bağımlılık yönü tek taraflıdır: **content → core → engine**. Ters im
 | paket          | import edebildikleri                          |
 | -------------- | --------------------------------------------- |
 | `sim-math`     | —                                             |
-| `schema`       | —                                             |
-| `modloader`    | `schema`                                      |
+| `schema`       | `sim-math`                                    |
+| `modloader`    | `schema`, `sim-math`                          |
 | `core-sim`     | `sim-math`, `schema`                          |
 | `engine`       | —                                             |
 | `core-present` | `sim-math`, `schema`, `core-sim`, `engine`    |
