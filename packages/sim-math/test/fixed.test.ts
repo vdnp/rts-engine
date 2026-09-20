@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Fx, imul32, isqrt } from '../src/fixed';
+import { Fx, idiv, imul32, isqrt } from '../src/fixed';
 
 /**
  * Bagimsiz referans: BigInt ile tam 64 bit hesap, sonra int32'ye sarma.
@@ -200,5 +200,33 @@ describe('imul32', () => {
       const b = rnd() | 0;
       expect(imul32(a, b)).toBe(I32(BigInt(a) * BigInt(b)));
     }
+  });
+});
+
+describe('idiv', () => {
+  it('eksi sonsuza dogru yuvarlar', () => {
+    expect(idiv(7, 2)).toBe(3);
+    expect(idiv(-7, 2)).toBe(-4);
+    expect(idiv(7, -2)).toBe(-4);
+    expect(idiv(-7, -2)).toBe(3);
+    expect(idiv(6, 3)).toBe(2);
+    expect(idiv(0, 5)).toBe(0);
+  });
+
+  it('BigInt referansiyla birebir ayni', () => {
+    const rnd = lcg(0x5150d1);
+    for (let i = 0; i < SAMPLES; i++) {
+      const a = (rnd() | 0) * 1024;
+      const b = rnd() | 0 || 1;
+      const bigA = BigInt(a);
+      const bigB = BigInt(b);
+      let want = bigA / bigB;
+      if (bigA % bigB !== 0n && bigA < 0n !== bigB < 0n) want -= 1n;
+      expect(idiv(a, b)).toBe(Number(want));
+    }
+  });
+
+  it('sifira bolmede hata firlatir', () => {
+    expect(() => idiv(1, 0)).toThrow(RangeError);
   });
 });

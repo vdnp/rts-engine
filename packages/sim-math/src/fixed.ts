@@ -53,6 +53,21 @@ export function isqrt(n: number): number {
   }
 }
 
+/**
+ * Tam sayi bolmesi, eksi sonsuza dogru yuvarlanmis (floor).
+ *
+ * `core-sim` icinde `/` operatoru yasaktir (float uretir); tam sayi bolmesi
+ * gerektiginde bu kullanilir. |a| <= 2^47 icin tam sonucludur.
+ *
+ * @throws {RangeError} b sifirsa.
+ */
+export function idiv(a: number, b: number): number {
+  if (b === 0) {
+    throw new RangeError('idiv: sifira bolme');
+  }
+  return floorDouble(a / b);
+}
+
 /** 32 bit tam sayi carpimi (Math.imul esdegeri, tam sonuclu). */
 export function imul32(a: number, b: number): number {
   const aLo = a & 0xffff;

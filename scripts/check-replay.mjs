@@ -2,12 +2,25 @@
 // Replay'i iki kez calistirir, ciktilarin birbirine ve commit edilmis beklenen
 // degere esit oldugunu dogrular. Determinizm bozulursa build kirmizi olur.
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const expectedPath = path.join(repoRoot, 'tools', 'replay', 'expected.json');
+const replayDir = path.join(repoRoot, 'tools', 'replay');
+const expectedPath = path.join(replayDir, 'expected.json');
+
+// Replay araci Faz 0'in son adiminda geliyor. O gelene kadar kapi bekler.
+// Arac var olup beklenen deger yoksa bu bir hatadir: kapi sessizce atlanamaz.
+if (!existsSync(replayDir)) {
+  console.log('replay araci henuz yok; determinizm kapisi arac gelince etkinlesecek.');
+  process.exit(0);
+}
+if (!existsSync(expectedPath)) {
+  console.error(`tools/replay var ama ${path.relative(repoRoot, expectedPath)} yok.`);
+  console.error('Determinizm kapisi beklenen hash olmadan calisamaz.');
+  process.exit(1);
+}
 
 /** @type {{ seed: number; ticks: number; mods: string; dataHash: string; finalStateHash: string }} */
 const expected = JSON.parse(readFileSync(expectedPath, 'utf8'));

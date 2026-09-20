@@ -5,7 +5,7 @@
  * donusumlerde (`Fx.of`, `Fx.toFloat`, `Angle.fromDegrees`) kullanilir; hesap
  * yollarinin tamami tam sayidir.
  */
-export { Fx, FX_BITS, FX_WRAP, imul32, isqrt } from './fixed';
+export { Fx, FX_BITS, FX_WRAP, idiv, imul32, isqrt } from './fixed';
 export { Angle } from './trig';
 export { Vec2 } from './vec2';
 export { Rng } from './rng';
