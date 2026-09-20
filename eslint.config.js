@@ -277,6 +277,22 @@ export default defineConfig(
     },
   },
 
+  // Babylon adasini bassiz dogrulayan test, adanin kendisini import eder.
+  // Kuralin amaci "hicbir PAKET Babylon'a bagimli olmasin"; adanin oz testi
+  // bunun disindadir ve tek izinli test yoludur.
+  {
+    files: ['packages/engine/test/**/*.ts'],
+    rules: {
+      'no-restricted-imports': importRule({ self: 'engine', allow: [], allowBabylon: true }),
+    },
+  },
+
+  // `console` yalnizca gunluk modulunde; baska hicbir yerde degil.
+  {
+    files: ['packages/engine/src/log.ts'],
+    rules: { 'no-console': 'error' },
+  },
+
   // Testler ve araçlar biraz daha serbest.
   {
     files: ['**/test/**/*.ts', 'tools/**/*.ts'],
