@@ -1,0 +1,27 @@
+# bağımlılıklar
+node_modules/
+.pnpm-store/
+
+# derleme çıktıları
+dist/
+*.tsbuildinfo
+
+# test
+coverage/
+
+# yerel ortam
+.env
+.env.local
+
+# pişirilmiş asset cache'i
+.cache/
+
+# ── HUKUKİ: orijinal oyundan gelen hiçbir asset repoya girmez ──
+content/*/assets/
+
+# editör / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
