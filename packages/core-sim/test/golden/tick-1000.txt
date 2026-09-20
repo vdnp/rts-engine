@@ -1,0 +1,10 @@
+tick  100  hash 00b4a9c0  varlik  15  slot  15
+tick  200  hash 42472ee4  varlik  24  slot  24
+tick  300  hash 46b2768f  varlik  24  slot  24
+tick  400  hash 05693f42  varlik  24  slot  24
+tick  500  hash 05881aae  varlik  24  slot  24
+tick  600  hash 1476af73  varlik  24  slot  24
+tick  700  hash efa53b7f  varlik  24  slot  24
+tick  800  hash 152c90e6  varlik  24  slot  24
+tick  900  hash 9a300fa6  varlik  24  slot  24
+tick 1000  hash 7af217eb  varlik  24  slot  24

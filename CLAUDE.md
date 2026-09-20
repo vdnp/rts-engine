@@ -64,6 +64,11 @@ Bağımlılık yönü tek taraflıdır: **content → core → engine**. Ters im
   present katmanında, tick sınırında `Int32Array.set` ile yapılır:
   `core-present` 2 slotluk transform ring buffer tutar.
 - `alpha = acc / TICK_MS`, `[0,1]` aralığına kırpılır.
+- Sim'de duvar saati birimi **yoktur**. `core-sim` yalnızca `TICK_RATE` (30) bilir;
+  milisaniye ve kare süresi present/app katmanının işidir.
+- `SimState` present'e `ReadonlySimState` olarak geçer: tipli dizilerin `set`/`fill`
+  gibi yazma yöntemleri o görünümde yoktur, alanlar `readonly`'dir. Present'ten
+  yazmak derleme hatasıdır.
 
 ## Hot reload semantiği
 
@@ -83,12 +88,14 @@ yeniden başlatma bildirimi gösterilir.
 
 ## Yeni bir sim sistemi eklerken
 
-1. Bileşen gerekiyorsa `packages/core-sim/src/components.ts` içine SoA dizisi ekle
-   (`Int32Array`, fixed-point). Store'un kapasite büyütme yolunu da güncelle.
+1. Bileşen gerekiyorsa `packages/core-sim/src/state.ts` içindeki `I32_FIELDS`
+   (veya `U8_FIELDS`) listesine alan adını ekle. Dizi ayırma, kapasite büyütme ve
+   `hashState()` bu listeden türer — tek yere ekle, üçü birden doğru olur.
 2. Sistemi `packages/core-sim/src/systems/<ad>.ts` içine saf fonksiyon olarak yaz:
    `(state, content) => void`. Argüman dışında hiçbir şey okuma.
 3. `tick.ts` içinde sistemi **sabit bir sırada** çağır. Sıra determinizmin parçasıdır.
-4. Yeni bileşen `hashState()` içine eklenmelidir, yoksa determinizm kontrolü kördür.
+4. Hash'in kör kalmadığını doğrula: alanı değiştirince `hashState()` değişmeli
+   (`test/tick.test.ts` bunu her alan için tek tek sınar).
 5. Test yaz: davranış testi + 1000 tick golden hash testi.
 6. Görselleşmesi gerekiyorsa `core-present` içinde okuyucu ekle. Sim tarafına
    görselle ilgili tek alan ekleme.
