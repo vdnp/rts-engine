@@ -72,9 +72,37 @@ Bu kurallar `eslint.config.js` tarafından gerçekten zorlanır — ihlal eden k
 
 Vanilla içerik (`content/base/`) özel muamele görmez; yükleyici için o da diğer
 paketler gibi bir mod'dur. Yeni bir mod `content/<ad>/manifest.toml` ile başlar ve
-`VITE_BFME_ENABLED_MODS` ile yükleme sırasına eklenir. Üç birleştirme sözdizimi
-desteklenir: tam tanım (`[unit.x]`), alan yaması (`[patch.unit.x]`) ve listeye ekleme
-(`[append.faction.y.units]`).
+`VITE_BFME_ENABLED_MODS` ile yükleme sırasına eklenir. Yükleme sırası bağımlılık
+grafiğinin topolojik sıralamasıdır; bağımsız paketlerde bu liste sırayı belirler.
+
+Üç birleştirme sözdizimi desteklenir:
+
+```toml
+# 1. Tam tanım — varsa öncekini tamamen değiştirir
+[unit.spearman]
+name = "Mızrakçı"
+maxHealth = 100
+speed = 5.0
+turnRate = 360.0
+radius = 0.5
+
+# 2. Alan yaması — yalnızca yazılan alanı değiştirir, gerisi olduğu gibi kalır
+[patch.unit.spearman]
+speed = 7.5
+
+# 3. Listeye ekleme — mevcut listeyi silmez, sonuna ekler
+[append.faction.order]
+units = ["rider"]
+```
+
+Ekleme her zaman hedefin bir üst tablosuyla yazılır (`[append.faction.order]` +
+`units = [...]`), çünkü TOML'da bir tablo başlığı liste olamaz; etkilenen yol yine
+`faction.order.units`'tir.
+
+Bir dosya içinde sıra sabittir: önce tam tanımlar, sonra yamalar, en son eklemeler.
+
+Bir birimin hangi fraksiyona ait olduğu tek kaynaktan, fraksiyonun `units`
+listesinden gelir. Her birim tam olarak bir kadroda geçmelidir.
 
 ## Lisans
 

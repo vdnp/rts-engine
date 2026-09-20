@@ -5,9 +5,9 @@
  * fixed-point'e cevrilmistir. Nesne derin dondurulmustur; calisma aninda
  * hicbir sistem icerigi degistiremez.
  *
- * DİKKAT: `core-sim` bu nesnenin Map'lerini ASLA iterate etmez — iterasyon
- * sirasi determinizm riskidir. Sirali erisim her zaman dizi indeksi uzerinden
- * yapilir; dizi indeksi sayisal kimligin ta kendisidir.
+ * DİKKAT: anahtar tablolari (`unitTypeByKey`) ASLA iterate edilmez — nesne
+ * anahtar sirasina bagimlilik determinizm riskidir. Sirali erisim her zaman
+ * dizi indeksi uzerinden yapilir; dizi indeksi sayisal kimligin ta kendisidir.
  */
 import type { Fx } from '@bfme/sim-math';
 import type { Color } from './primitives';
@@ -68,7 +68,7 @@ export interface Content {
   /** Fraksiyonlar; indeks === `FactionId`. */
   readonly factions: readonly Faction[];
   /** Metin anahtarindan sayisal kimlige. Sadece arac ve tani icin, iterate edilmez. */
-  readonly unitTypeByKey: ReadonlyMap<string, UnitTypeId>;
+  readonly unitTypeByKey: Readonly<Record<string, UnitTypeId>>;
   /** Metin anahtarindan sayisal kimlige. Sadece arac ve tani icin, iterate edilmez. */
-  readonly factionByKey: ReadonlyMap<string, FactionId>;
+  readonly factionByKey: Readonly<Record<string, FactionId>>;
 }

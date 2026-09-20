@@ -81,7 +81,6 @@ describe('ManifestSchema', () => {
 describe('UnitSchema', () => {
   const valid = {
     name: 'Asker',
-    faction: 'alpha',
     maxHealth: 100,
     speed: 5,
     turnRate: 360,

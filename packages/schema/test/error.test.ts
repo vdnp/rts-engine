@@ -13,7 +13,6 @@ import { UnitSchema } from '../src/unit';
 /** Test icin sahte satir haritasi: alan yolundan sabit satir numarasi uretir. */
 const LINES: Record<string, number> = {
   'unit.soldier.name': 4,
-  'unit.soldier.faction': 5,
   'unit.soldier.maxHealth': 6,
   'unit.soldier.speed': 7,
   'unit.soldier.turnRate': 8,
@@ -68,7 +67,6 @@ describe('toIssues', () => {
   it('tek hatanin tum alanlarini doldurur', () => {
     const input = {
       name: 'Asker',
-      faction: 'alpha',
       maxHealth: 100,
       speed: 'hizli',
       turnRate: 360,
@@ -94,10 +92,9 @@ describe('toIssues', () => {
   it('ILK HATADA DURMAZ: bes bozuk alanin besini birden raporlar', () => {
     const input = {
       name: '',
-      faction: 'Alpha',
       maxHealth: -5,
       speed: 'hizli',
-      turnRate: 360,
+      turnRate: 0,
       radius: 0,
     };
     const result = UnitSchema.safeParse(input);
@@ -106,12 +103,12 @@ describe('toIssues', () => {
     expect(issues).toHaveLength(5);
     expect(issues.map((i) => i.path)).toEqual([
       'unit.soldier.name',
-      'unit.soldier.faction',
       'unit.soldier.maxHealth',
       'unit.soldier.speed',
+      'unit.soldier.turnRate',
       'unit.soldier.radius',
     ]);
-    expect(issues.map((i) => i.line)).toEqual([4, 5, 6, 7, 9]);
+    expect(issues.map((i) => i.line)).toEqual([4, 6, 7, 8, 9]);
     for (const issue of issues) {
       expect(issue.mod).toBe('alpha');
       expect(issue.file).toBe('alpha/units/soldier.toml');
@@ -121,7 +118,7 @@ describe('toIssues', () => {
   });
 
   it('beklenen tarifleri hata turune gore uretir', () => {
-    const input = { name: 'x', faction: 'a', maxHealth: 0, speed: 1, turnRate: 1, radius: 1 };
+    const input = { name: 'x', maxHealth: 0, speed: 1, turnRate: 1, radius: 1 };
     const issues = toIssues(UnitSchema.safeParse(input).error!, input, ctx);
     expect(issues[0]?.expected).toBe('number > 0');
     expect(issues[0]?.got).toBe('0');
@@ -134,7 +131,6 @@ describe('toIssues', () => {
   it('fazladan alani ve adini raporlar', () => {
     const input = {
       name: 'x',
-      faction: 'a',
       maxHealth: 5,
       speed: 1,
       turnRate: 1,
@@ -150,7 +146,7 @@ describe('toIssues', () => {
   });
 
   it('satir haritasi yoksa 0 yazar, patlamaz', () => {
-    const input = { name: 'x', faction: 'a', maxHealth: 5, speed: -1, turnRate: 1, radius: 1 };
+    const input = { name: 'x', maxHealth: 5, speed: -1, turnRate: 1, radius: 1 };
     const issues = toIssues(UnitSchema.safeParse(input).error!, input, {
       file: 'x.toml',
       mod: 'x',
@@ -160,7 +156,7 @@ describe('toIssues', () => {
   });
 
   it('ayni girdi ayni listeyi uretir (deterministik)', () => {
-    const input = { name: '', faction: 'A', maxHealth: -1, speed: -1, turnRate: 1, radius: 1 };
+    const input = { name: '', maxHealth: -1, speed: -1, turnRate: 1, radius: 1 };
     const a = toIssues(UnitSchema.safeParse(input).error!, input, ctx);
     const b = toIssues(UnitSchema.safeParse(input).error!, input, ctx);
     expect(a).toEqual(b);
