@@ -141,6 +141,44 @@ describe('Babylon render uygulamasi', () => {
     expect(batches.every((mesh) => mesh.isEnabled())).toBe(true);
   });
 
+  it('kumeler GEOMETRIYI PAYLASMAZ', () => {
+    // Gerileme testi: `Mesh.clone` geometriyi paylastirir ve thin instance
+    // matris tamponu geometrinin uzerinde yasar. Paylasilan geometride son
+    // yazan kume digerlerinin tamponunu eziyor, ekranda yalnizca tek bir
+    // kumenin konumlari cikiyordu. `thinInstanceCount` her mesh'te ayri
+    // tutuldugu icin sayaca bakan bir test bu hatayi GORMEZ.
+    const { engine: created, renderer: made } = setup();
+    made.setBatches([batch(2, [1, 0, 0]), batch(2, [0, 1, 0])]);
+
+    const scene = created.scenes[0];
+    const first = meshNamed(scene, 'batch0');
+    const second = meshNamed(scene, 'batch1');
+    expect(first?.geometry).toBeDefined();
+    expect(first?.geometry).not.toBe(second?.geometry);
+  });
+
+  it('her kume kendi konumlarini tutar', () => {
+    // DİKKAT: bu kontrol mesh basina CPU tarafi veriyi okur ve geometri
+    // paylasimi hatasini TEK BASINA YAKALAMAZ (hata varken de geciyordu).
+    // GPU yolunu koruyan, bir ustteki geometri testidir. Bu test tampon
+    // dilimleme ve indeksleme hatalarina karsi durur.
+    const { engine: created, renderer: made } = setup();
+
+    const makeAt = (x: number, count: number): InstanceBatch => {
+      const matrices = new Float32Array(count * MATRIX_STRIDE);
+      for (let i = 0; i < count; i++) writeInstanceMatrix(matrices, i, x, 0, 0, 1, 0);
+      return { color: [1, 1, 1], count, matrices };
+    };
+    made.setBatches([makeAt(-10, 2), makeAt(10, 2)]);
+
+    const scene = created.scenes[0];
+    const left = meshNamed(scene, 'batch0')?.thinInstanceGetWorldMatrices();
+    const right = meshNamed(scene, 'batch1')?.thinInstanceGetWorldMatrices();
+
+    expect(left?.[0]?.getTranslation().x).toBeCloseTo(-10, 4);
+    expect(right?.[0]?.getTranslation().x).toBeCloseTo(10, 4);
+  });
+
   it('mesh-leri kareler arasinda yeniden kullanir', () => {
     const { engine: created, renderer: made } = setup();
     made.setBatches([batch(2, [1, 0, 0])]);

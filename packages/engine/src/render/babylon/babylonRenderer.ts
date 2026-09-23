@@ -88,6 +88,10 @@ export function createBabylonRenderer(
     materials[index] = material;
 
     const mesh = prototype.clone(`batch${String(index)}`);
+    // `clone` GEOMETRIYI PAYLASTIRIR. Thin instance matris tamponu geometrinin
+    // uzerinde yasadigi icin, paylasilan geometride son yazan kume digerlerinin
+    // tamponunu eziyordu: ekranda yalnizca tek bir kumenin konumlari cikiyordu.
+    mesh.makeGeometryUnique();
     mesh.material = material;
     mesh.isPickable = false;
     mesh.alwaysSelectAsActiveMesh = true;
