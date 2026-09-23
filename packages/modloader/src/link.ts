@@ -66,15 +66,19 @@ export function link(validated: ValidateResult, origins: ReadonlyMap<string, Ori
       const unitId = unitTypeByKey[unitKey];
 
       if (unitId === undefined) {
-        issues.push(
-          issueAt(
-            origin,
-            path,
-            'tanimli bir birim kimligi',
-            `"${unitKey}"`,
-            'Cozulemeyen birim referansi.',
-          ),
-        );
+        // Birim tanimliydi ama semayi gecemedi: hatasi zaten var, referansi
+        // ayrica raporlamak sagliki fraksiyon dosyasini haksiz yere suclar.
+        if (!validated.rejectedUnits.has(unitKey)) {
+          issues.push(
+            issueAt(
+              origin,
+              path,
+              'tanimli bir birim kimligi',
+              `"${unitKey}"`,
+              'Cozulemeyen birim referansi.',
+            ),
+          );
+        }
         continue;
       }
       if (seen.has(unitKey)) {
@@ -115,7 +119,9 @@ export function link(validated: ValidateResult, origins: ReadonlyMap<string, Ori
     const factionKey = owner.get(entity.key);
     const factionId = factionKey === undefined ? undefined : factionByKey[factionKey];
 
-    if (factionId === undefined) {
+    // Bir fraksiyon dogrulamada elendiyse kadrosu da yok olur; o kadrodaki
+    // birimleri "hicbir kadroda yok" diye suclamak yaniltici olur.
+    if (factionId === undefined && validated.rejectedFactions.size === 0) {
       const origin = entity.origin ?? UNKNOWN_ORIGIN;
       issues.push(
         issueAt(

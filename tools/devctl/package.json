@@ -1,0 +1,14 @@
+{
+  "name": "@bfme/devctl",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@bfme/modloader": "workspace:*",
+    "@bfme/schema": "workspace:*",
+    "commander": "15.0.0"
+  }
+}

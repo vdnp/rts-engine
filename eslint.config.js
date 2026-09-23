@@ -40,6 +40,12 @@ const LAYERS = {
     allow: ['sim-math', 'schema', 'modloader', 'core-sim'],
     allowNode: true,
   },
+  // devctl icerigi DENETLER, calistirmaz: sim'e hic dokunmaz.
+  devctl: {
+    dir: 'tools/devctl',
+    allow: ['schema', 'modloader'],
+    allowNode: true,
+  },
 };
 
 const NODE_IMPORTS = {

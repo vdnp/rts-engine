@@ -20,7 +20,9 @@
     "test:coverage": "vitest run --coverage",
     "test:golden:update": "vitest run -u",
     "replay:build": "vite build --config tools/replay/vite.config.ts",
-    "replay": "pnpm replay:build && node tools/replay/dist/replay.js"
+    "replay": "pnpm replay:build && node tools/replay/dist/replay.js",
+    "devctl:build": "vite build --config tools/devctl/vite.config.ts",
+    "devctl": "pnpm devctl:build && node tools/devctl/dist/devctl.js"
   },
   "devDependencies": {
     "@types/node": "22.20.4",

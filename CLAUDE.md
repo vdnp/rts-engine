@@ -33,6 +33,7 @@ Bağımlılık yönü tek taraflıdır: **content → core → engine**. Ters im
 | `core-present` | `sim-math`, `schema`, `core-sim`, `engine`    |
 | `app`          | hepsi                                         |
 | `tools/replay` | `sim-math`, `schema`, `modloader`, `core-sim` |
+| `tools/devctl` | `schema`, `modloader`                         |
 
 ## Değişmez kurallar
 
@@ -129,6 +130,8 @@ yeniden başlatma bildirimi gösterilir.
 | `pnpm test:coverage`                  | kapsam raporu + %70 eşiği                          |
 | `pnpm test:golden:update`             | golden dosyalarını yeniden üretir (tek izinli yol) |
 | `pnpm replay --seed 42 --ticks 10000` | headless determinizm doğrulayıcı                   |
+| `pnpm devctl mods`                    | içerik paketleri, bağımlılıkları, yükleme sırası   |
+| `pnpm devctl validate --mods base`    | tüm içerik hatalarını dosya:satır ile raporlar     |
 | `pnpm format`                         | prettier                                           |
 
 `cook` komutu Faz 0'da **yoktur**; Faz 1'de gelecek.

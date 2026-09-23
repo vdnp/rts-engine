@@ -186,6 +186,35 @@ describe('hata toplama', () => {
     expect(issue?.line).toBe(4);
   });
 
+  it('elenen birim, saglikli fraksiyon dosyasini suclamaz', () => {
+    // Birim semayi gecemezse kadrodaki referansi da cozulemez hale gelir.
+    // O referansi AYRICA hata saymak, dokunulmamis fraksiyon dosyasini ve
+    // onun modunu haksiz yere sucluyordu.
+    const files = baseOnlyFiles();
+    files['base/units/spearman.toml'] = ['[unit.spearman]', 'name = ""', ''].join('\n');
+    const result = load(files, ['base']);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+
+    expect(result.issues.some((i) => i.path.startsWith('unit.spearman'))).toBe(true);
+    expect(result.issues.some((i) => i.path.startsWith('faction.order.units'))).toBe(false);
+  });
+
+  it('gercekten tanimsiz referans hala hatadir', () => {
+    const files = baseOnlyFiles();
+    files['base/factions/order.toml'] = [
+      '[faction.order]',
+      'name = "Duzen"',
+      'color = [1, 2, 3]',
+      'units = ["spearman", "archer", "hayalet"]',
+      '',
+    ].join('\n');
+    const result = load(files, ['base']);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.issues.some((i) => i.got === '"hayalet"')).toBe(true);
+  });
+
   it('hicbir kadroda gecmeyen birim hatadir', () => {
     const files = baseOnlyFiles();
     files['base/units/oksuz.toml'] = [

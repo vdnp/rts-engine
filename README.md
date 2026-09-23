@@ -46,6 +46,8 @@ pnpm dev
 | `pnpm test:coverage`                  | kapsam raporu (%70 eşiği)                |
 | `pnpm test:golden:update`             | golden dosyalarını yeniden üretir        |
 | `pnpm replay --seed 42 --ticks 10000` | headless determinizm doğrulayıcı         |
+| `pnpm devctl mods`                    | içerik paketleri ve yükleme sırası       |
+| `pnpm devctl validate --mods base`    | içerik doğrulayıcı (hata varsa exit 1)   |
 
 ## Determinizm
 
@@ -79,6 +81,7 @@ packages/
   app/            giriş noktası (Vite)
 tools/
   replay/         headless determinizm doğrulayıcı
+  devctl/         içerik denetleme aracı (oyunu başlatmaz)
 content/
   base/           vanilla içerik (TOML)
 ```

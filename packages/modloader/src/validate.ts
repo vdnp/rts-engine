@@ -27,6 +27,17 @@ export interface ValidatedEntity<T> {
 export interface ValidateResult {
   readonly units: readonly ValidatedEntity<UnitData>[];
   readonly factions: readonly ValidatedEntity<FactionData>[];
+  /**
+   * Tanimli olup semayi GECEMEYEN birim anahtarlari.
+   *
+   * `link` bunlari bilmek zorundadir: bir birim dogrulamada elendiginde
+   * kadrosundaki referans da cozulemez hale gelir. O referansi ayrica hata
+   * saymak, sagliki olan fraksiyon dosyasini ve onun modunu haksiz yere
+   * sucluyordu.
+   */
+  readonly rejectedUnits: ReadonlySet<string>;
+  /** Tanimli olup semayi gecemeyen fraksiyon anahtarlari. */
+  readonly rejectedFactions: ReadonlySet<string>;
   readonly issues: readonly ContentIssue[];
 }
 
@@ -66,9 +77,18 @@ export function validate(
     });
   }
 
-  const units = validateKind(data, origins, UNIT_KIND, UnitSchema, issues);
-  const factions = validateKind(data, origins, FACTION_KIND, FactionSchema, issues);
-  return { units, factions, issues };
+  const rejectedUnits = new Set<string>();
+  const rejectedFactions = new Set<string>();
+  const units = validateKind(data, origins, UNIT_KIND, UnitSchema, issues, rejectedUnits);
+  const factions = validateKind(
+    data,
+    origins,
+    FACTION_KIND,
+    FactionSchema,
+    issues,
+    rejectedFactions,
+  );
+  return { units, factions, rejectedUnits, rejectedFactions, issues };
 }
 
 /** Bir tur altindaki tum varliklari dogrular; hatalari `issues` icine ekler. */
@@ -78,6 +98,7 @@ function validateKind<S extends z.ZodType>(
   kind: string,
   schema: S,
   issues: ContentIssue[],
+  rejected: Set<string>,
 ): ValidatedEntity<z.infer<S>>[] {
   const table = data[kind];
   if (table === undefined) return [];
@@ -110,6 +131,7 @@ function validateKind<S extends z.ZodType>(
         mod: entityOrigin.mod,
         message: 'Gecersiz kimlik.',
       });
+      rejected.add(key);
       continue;
     }
 
@@ -120,6 +142,7 @@ function validateKind<S extends z.ZodType>(
       continue;
     }
 
+    rejected.add(key);
     const parsed = toIssues(result.error, raw, {
       file: entityOrigin.file,
       mod: entityOrigin.mod,

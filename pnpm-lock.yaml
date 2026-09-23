@@ -113,6 +113,18 @@ importers:
 
   packages/sim-math: {}
 
+  tools/devctl:
+    dependencies:
+      '@bfme/modloader':
+        specifier: workspace:*
+        version: link:../../packages/modloader
+      '@bfme/schema':
+        specifier: workspace:*
+        version: link:../../packages/schema
+      commander:
+        specifier: 15.0.0
+        version: 15.0.0
+
   tools/replay:
     dependencies:
       '@bfme/core-sim':
