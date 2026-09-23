@@ -2,6 +2,7 @@ import {
   type ChunkInput,
   MESH_HEADER3_VERSIONS,
   SUB_CHUNK_FLAG,
+  isKnownChunk,
   sampleW3dFile,
   writeW3dChunks,
 } from '@bfme/formats';
@@ -9,9 +10,13 @@ import { describe, expect, it } from 'vitest';
 import { formatScan, formatSurvey } from '../src/scan';
 import {
   type ArchiveReport,
+  EXPECTED_STRIDES,
   SurveyAccumulator,
+  UNKNOWN_SAMPLE_LIMIT,
+  VERSIONED_CHUNK_IDS,
   entryExtension,
   rankCounts,
+  sizeStats,
   suspiciousName,
 } from '../src/survey';
 
@@ -103,7 +108,43 @@ describe('SurveyAccumulator', () => {
     accumulator.add('x.w3d', writeW3dChunks([{ id: 0xdeadbeef, data: new Uint8Array(4) }]));
 
     const report = accumulator.report();
-    expect(report.unknownChunks).toEqual([['0xdeadbeef', 1]]);
+    expect(report.unknownChunks).toEqual([{ id: '0xdeadbeef', count: 1, sources: ['x.w3d'] }]);
+  });
+
+  it('taninmayan kimligin goruldugu dosyalari ornekler', () => {
+    // Sayi tek basina yetmiyor: bir kimlik yalnizca birkac dosyada
+    // gorunuyorsa o dosyalarin ADI nedeni acikliyor.
+    const accumulator = new SurveyAccumulator();
+    const bytes = writeW3dChunks([{ id: 0xdeadbeef, data: new Uint8Array(4) }]);
+    for (let i = 0; i < UNKNOWN_SAMPLE_LIMIT + 3; i++) {
+      accumulator.add(`dosya${String(i)}.w3d`, bytes);
+    }
+
+    const unknown = accumulator.report().unknownChunks[0];
+    expect(unknown?.count).toBe(UNKNOWN_SAMPLE_LIMIT + 3);
+    // Ornekler sinirlidir ve tekrar etmez; rapor sisirilmez.
+    expect(unknown?.sources).toEqual([
+      'dosya0.w3d',
+      'dosya1.w3d',
+      'dosya2.w3d',
+      'dosya3.w3d',
+      'dosya4.w3d',
+    ]);
+  });
+
+  it('ayni dosyada tekrar eden taninmayan kimligi bir kez ornekler', () => {
+    const accumulator = new SurveyAccumulator();
+    accumulator.add(
+      'x.w3d',
+      writeW3dChunks([
+        { id: 0xdeadbeef, data: new Uint8Array(4) },
+        { id: 0xdeadbeef, data: new Uint8Array(4) },
+      ]),
+    );
+
+    const unknown = accumulator.report().unknownChunks[0];
+    expect(unknown?.count).toBe(2);
+    expect(unknown?.sources).toEqual(['x.w3d']);
   });
 
   it('surum alanlarini major.minor olarak okur', () => {
@@ -243,7 +284,34 @@ describe('SurveyAccumulator — bayrak ve dalma', () => {
     accumulator.add('yaprak.w3d', writeW3dChunks([{ id: 0x100, data: new Uint8Array(8) }]));
 
     const conflicts = accumulator.report().flagConflicts;
-    expect(conflicts).toEqual([['HIERARCHY', 1, 1]]);
+    expect(conflicts).toEqual([
+      {
+        name: 'HIERARCHY',
+        asContainer: 1,
+        asLeaf: 1,
+        leafSizes: { min: 8, median: 8, max: 8, zeroCount: 0 },
+      },
+    ]);
+  });
+
+  it('yaprak gorulen orneklerin govde boyutunu olcer', () => {
+    // Karar bu olcume dayanir: yapraklarin hepsi bos ise yer tutucudur,
+    // boyutu varsa icinde okumadigimiz veri var demektir.
+    const accumulator = new SurveyAccumulator();
+    accumulator.add(
+      'kapsayici.w3d',
+      writeW3dChunks([{ id: 0x100, children: [{ id: 0x101, data: new Uint8Array(36) }] }]),
+    );
+    for (const size of [0, 0, 4, 40]) {
+      accumulator.add(
+        `yaprak${String(size)}.w3d`,
+        writeW3dChunks([{ id: 0x100, data: new Uint8Array(size) }]),
+      );
+    }
+
+    const conflict = accumulator.report().flagConflicts[0];
+    expect(conflict?.asLeaf).toBe(4);
+    expect(conflict?.leafSizes).toEqual({ min: 0, median: 2, max: 40, zeroCount: 2 });
   });
 
   it('tutarli bayrak kullaniminda catisma bildirmez', () => {
@@ -286,6 +354,69 @@ describe('SurveyAccumulator — surumler', () => {
       accumulator.add('x.w3d', sampleW3dFile({ meshVersion: version }));
       expect(accumulator.report().countMismatches).toEqual([]);
     }
+  });
+
+  it('HLOD_HEADER surumunu dogru kimlikten okur', () => {
+    // Regresyon: surum tablosu kendi etiketini tutarken isim tablosu
+    // HLOD_HEADER-i 0x701-e tasidi ve buradaki eski 0xB01 girdisi kaldi.
+    // Sonuc sessizdi: gercek basliklar hic orneklenmedi, alakasiz bir
+    // chunk HLOD_HEADER diye cop surum raporladi.
+    const body = new Uint8Array(32);
+    new DataView(body.buffer).setUint32(0, (1 << 16) | 0, true); // Version 1.0
+    const accumulator = new SurveyAccumulator();
+    accumulator.add(
+      'x.w3d',
+      writeW3dChunks([{ id: 0x700, children: [{ id: 0x701, data: body }] }]),
+    );
+
+    expect(accumulator.report().versions).toEqual([['HLOD_HEADER 1.0', 1]]);
+  });
+
+  it('surumle baslamayan baslik chunk-larini orneklemez', () => {
+    // Her *HeaderStruct surumle baslamaz: HLOD_SUB_OBJECT_ARRAY_HEADER
+    // (0x703) ModelCount ile baslar. Listede olmamali.
+    const accumulator = new SurveyAccumulator();
+    accumulator.add('x.w3d', writeW3dChunks([{ id: 0x703, data: new Uint8Array(40) }]));
+    expect(accumulator.report().versions).toEqual([]);
+  });
+});
+
+describe('anket tablolari', () => {
+  // Kimlik iki yerde yasarsa biri duzeltilip digeri unutulabiliyor —
+  // HLOD_HEADER tam olarak boyle kaybolmustu. Etiketler artik
+  // `chunkName()` ile uretiliyor; bu sinav da kimliklerin isim
+  // tablosunda gercekten bulundugunu dogruluyor.
+  it('surum tablosundaki her kimlik taninir', () => {
+    for (const id of VERSIONED_CHUNK_IDS) {
+      expect(isKnownChunk(id), `0x${id.toString(16)} isim tablosunda yok`).toBe(true);
+    }
+  });
+
+  it('adim tablosundaki her kimlik taninir', () => {
+    for (const key of Object.keys(EXPECTED_STRIDES)) {
+      const id = Number(key);
+      expect(isKnownChunk(id), `0x${id.toString(16)} isim tablosunda yok`).toBe(true);
+    }
+  });
+});
+
+describe('sizeStats', () => {
+  it('bos kumede sifir dondurur', () => {
+    expect(sizeStats([])).toEqual({ min: 0, median: 0, max: 0, zeroCount: 0 });
+  });
+
+  it('tek sayida olcumde ortadaki degeri verir', () => {
+    expect(sizeStats([40, 4, 12])).toEqual({ min: 4, median: 12, max: 40, zeroCount: 0 });
+  });
+
+  it('cift sayida olcumde ortadaki ikisinin ortalamasini verir', () => {
+    expect(sizeStats([0, 4, 8, 100])).toEqual({ min: 0, median: 6, max: 100, zeroCount: 1 });
+  });
+
+  it('girdi dizisini degistirmez', () => {
+    const values = [3, 1, 2];
+    sizeStats(values);
+    expect(values).toEqual([3, 1, 2]);
   });
 });
 
@@ -388,6 +519,23 @@ describe('formatSurvey', () => {
     const text = formatSurvey(report, '/oyun').join('\n');
     expect(text).toContain('TANINMAYAN chunk kimlikleri (1 cesit):');
     expect(text).toContain('0xabcdef01');
+    // Kimligin nerede goruldugu raporda yazmali.
+    expect(text).toContain('ornek dosyalar');
+    expect(text).toContain('ornek.w3d');
+  });
+
+  it('bayrak catismasinda yaprak boyut istatistigini yazar', () => {
+    const accumulator = new SurveyAccumulator();
+    accumulator.add(
+      'kapsayici.w3d',
+      writeW3dChunks([{ id: 0x100, children: [{ id: 0x101, data: new Uint8Array(36) }] }]),
+    );
+    accumulator.add('yaprak.w3d', writeW3dChunks([{ id: 0x100, data: new Uint8Array(24) }]));
+
+    const text = formatSurvey(accumulator.report(), '/oyun').join('\n');
+    expect(text).toContain('BAYRAK TUTARSIZLIGI (1 chunk):');
+    expect(text).toContain('medyan');
+    expect(text).toContain('0/1');
   });
 
   it('bos dizini acikca soyler', () => {

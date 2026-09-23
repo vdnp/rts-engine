@@ -256,8 +256,12 @@ export function formatSurvey(report: SurveyReport, root: string): string[] {
   if (report.unknownChunks.length > 0) {
     lines.push(
       ...table(
-        ['kimlik', 'adet'],
-        report.unknownChunks.map(([id, count]) => [id, String(count)]),
+        ['kimlik', 'adet', 'ornek dosyalar'],
+        report.unknownChunks.map((unknown) => [
+          unknown.id,
+          String(unknown.count),
+          unknown.sources.length === 0 ? '—' : unknown.sources.join(', '),
+        ]),
       ),
     );
   }
@@ -267,12 +271,17 @@ export function formatSurvey(report: SurveyReport, root: string): string[] {
       '',
       `BAYRAK TUTARSIZLIGI (${String(report.flagConflicts.length)} chunk):`,
       '  ayni kimlik hem kapsayici hem yaprak olarak gorulmus',
+      '  yaprak boyutlari hep 0 ise yer tutucu; buyukse okunmayan veri var',
       ...table(
-        ['chunk', 'kapsayici', 'yaprak'],
-        report.flagConflicts.map(([name, container, leaf]) => [
-          name,
-          String(container),
-          String(leaf),
+        ['chunk', 'kapsayici', 'yaprak', 'en kucuk', 'medyan', 'en buyuk', 'bos'],
+        report.flagConflicts.map((conflict) => [
+          conflict.name,
+          String(conflict.asContainer),
+          String(conflict.asLeaf),
+          String(conflict.leafSizes.min),
+          String(conflict.leafSizes.median),
+          String(conflict.leafSizes.max),
+          `${String(conflict.leafSizes.zeroCount)}/${String(conflict.asLeaf)}`,
         ]),
       ),
     );

@@ -72,27 +72,91 @@ export function suspiciousName(name: string): boolean {
 
 // ── W3D anketi ──────────────────────────────────────────────────────────
 
-/** Govde boyutunun tam bolunmesi beklenen chunk'lar. */
-export const EXPECTED_STRIDES: Readonly<Record<number, { stride: number; label: string }>> = {
-  0x00000002: { stride: 12, label: 'VERTICES (3 float)' },
-  0x00000003: { stride: 12, label: 'VERTEX_NORMALS (3 float)' },
-  0x00000020: { stride: 32, label: 'TRIANGLES (W3dTriStruct)' },
-  0x00000102: { stride: 60, label: 'PIVOTS (W3dPivotStruct)' },
+/*
+ * Asagidaki iki tablo yalnizca KIMLIK tutar; etiketler `chunkName()` ile
+ * uretilir.
+ *
+ * Bir zamanlar etiketi de burada yaziyorlardi ve beklenen sey oldu: isim
+ * tablosu duzeltilip HLOD_HEADER 0x701'e tasindiginda buradaki eski 0xB01
+ * girdisi unutuldu. Sonuc: gercek 1880 HLOD_HEADER hic orneklenmedi, onun
+ * yerine alakasiz ve nadir bir chunk HLOD_HEADER diye etiketlenip ilk dort
+ * bayti cop bir surum olarak raporlandi. Kimlik tek yerde yasarsa bu kayma
+ * bir daha olamaz; `test/survey.test.ts` ayrica her kimligin isim
+ * tablosunda bulundugunu sinar.
+ */
+
+/** Govde boyutunun tam bolunmesi beklenen chunk'lar: kimlik -> adim. */
+export const EXPECTED_STRIDES: Readonly<Record<number, number>> = {
+  0x00000002: 12, // VERTICES — 3 float
+  0x00000003: 12, // VERTEX_NORMALS — 3 float
+  0x00000020: 32, // TRIANGLES — W3dTriStruct
+  0x00000102: 60, // PIVOTS — W3dPivotStruct
 };
 
-/** Ilk dort bayti surum alani olan chunk'lar. */
-export const VERSIONED_CHUNKS: Readonly<Record<number, string>> = {
-  0x0000001f: 'MESH_HEADER3',
-  0x00000101: 'HIERARCHY_HEADER',
-  0x00000201: 'ANIMATION_HEADER',
-  0x00000281: 'COMPRESSED_ANIMATION_HEADER',
-  0x00000b01: 'HLOD_HEADER',
-};
+/**
+ * Govdesi `uint32 Version` ile BASLAYAN chunk'lar.
+ *
+ * Her `*HeaderStruct` surumle baslamaz: `W3dHLodArrayHeaderStruct` (0x703)
+ * `ModelCount` ile baslar, bu yuzden listede YOKTUR.
+ *
+ * Dogrulanmis duzenler (Westwood w3d_file.h):
+ *   HLOD_HEADER       Version, LodCount, Name[16], HierarchyName[16]  (32 bayt)
+ *   HIERARCHY_HEADER  Version, Name[16], NumPivots, Center            (36 bayt)
+ */
+export const VERSIONED_CHUNK_IDS: readonly number[] = [
+  0x0000001f, // MESH_HEADER3
+  0x00000101, // HIERARCHY_HEADER
+  0x00000201, // ANIMATION_HEADER
+  0x00000281, // COMPRESSED_ANIMATION_HEADER
+  0x00000701, // HLOD_HEADER
+];
+
+const VERSIONED_IDS = new Set(VERSIONED_CHUNK_IDS);
 
 export interface SurveyFinding {
   /** Bulgunun gorundugu dosya (arsiv icindeyse `arsiv!girdi`). */
   readonly source: string;
   readonly detail: string;
+}
+
+/** Taninmayan bir kimlik icin en fazla kac ornek dosya adi saklanir. */
+export const UNKNOWN_SAMPLE_LIMIT = 5;
+
+/**
+ * Tabloda bulunmayan bir chunk kimligi ve nerede gorundugu.
+ *
+ * Ornek dosya adlari sayidan daha cok sey soyler: bir kimlik yalnizca birkac
+ * dosyada gorunuyorsa o dosyalarin adi genelde nedeni aciklar — normal bir
+ * model olmayabilirler.
+ */
+export interface UnknownChunk {
+  /** Onaltilik kimlik. */
+  readonly id: string;
+  readonly count: number;
+  readonly sources: readonly string[];
+}
+
+/** Bir olcum kumesinin min/medyan/maks degerleri ve sifir sayisi. */
+export interface SizeStats {
+  readonly min: number;
+  readonly median: number;
+  readonly max: number;
+  /** Kac olcum sifir. */
+  readonly zeroCount: number;
+}
+
+/**
+ * Ayni chunk kimliginin hem kapsayici hem yaprak gorulmesi.
+ *
+ * Yaprak orneklerin GOVDE BOYUTU karari belirler: hepsi bos ise yer
+ * tutucudur, gormezden gelinebilir. Boyutu varsa icinde okunmayan gercek
+ * veri var demektir; o kimlige bayraga bakmadan dalmak gerekir.
+ */
+export interface FlagConflict {
+  readonly name: string;
+  readonly asContainer: number;
+  readonly asLeaf: number;
+  readonly leafSizes: SizeStats;
 }
 
 export interface SurveyReport {
@@ -102,8 +166,8 @@ export interface SurveyReport {
   readonly parseErrors: readonly SurveyFinding[];
   /** Chunk adi -> gorulme sayisi, cok olandan aza. */
   readonly chunkHistogram: readonly (readonly [string, number])[];
-  /** Tabloda olmayan chunk kimlikleri, onaltilik. */
-  readonly unknownChunks: readonly (readonly [string, number])[];
+  /** Tabloda olmayan chunk kimlikleri ve ornek dosyalari. */
+  readonly unknownChunks: readonly UnknownChunk[];
   /** `chunk surum` -> gorulme sayisi. */
   readonly versions: readonly (readonly [string, number])[];
   /** Beklenen adimla bolunmeyen govdeler. */
@@ -115,23 +179,40 @@ export interface SurveyReport {
    * Dosya atilmaz, yaprak kabul edilir; sayisi burada gorunur.
    */
   readonly descendFailures: readonly (readonly [string, number])[];
-  /**
-   * BAYRAK TUTARSIZLIGI: ayni chunk kimliginin hem kapsayici hem yaprak
-   * olarak gorulmesi. Bir kimlik her zaman ayni sekilde yazilmali; ikisi
-   * birden gorunuyorsa ya yazici tutarsiz ya da okumamiz yanlis.
-   *
-   * `[ad, kapsayici sayisi, yaprak sayisi]`.
-   */
-  readonly flagConflicts: readonly (readonly [string, number, number])[];
+  /** Bayrak tutarsizligi olan chunk'lar ve yaprak boyut istatistikleri. */
+  readonly flagConflicts: readonly FlagConflict[];
   /** Faz 1'de govdesi yorumlanmayacagi bilinen chunk sayisi. */
   readonly skippedChunks: number;
+}
+
+/** Olcum dizisinden min/medyan/maks ve sifir sayisi. */
+export function sizeStats(values: readonly number[]): SizeStats {
+  if (values.length === 0) return { min: 0, median: 0, max: 0, zeroCount: 0 };
+
+  const sorted = [...values].sort((a, b) => a - b);
+  const middle = sorted.length >> 1;
+  const median =
+    sorted.length % 2 === 1
+      ? (sorted[middle] ?? 0)
+      : ((sorted[middle - 1] ?? 0) + (sorted[middle] ?? 0)) / 2;
+
+  let zeroCount = 0;
+  for (const value of values) if (value === 0) zeroCount += 1;
+
+  return {
+    min: sorted[0] ?? 0,
+    median,
+    max: sorted[sorted.length - 1] ?? 0,
+    zeroCount,
+  };
 }
 
 /** Anket sirasinda biriken sayaclar. */
 export class SurveyAccumulator {
   private files = 0;
   private readonly chunks = new Map<string, number>();
-  private readonly unknown = new Map<string, number>();
+  private readonly unknownCounts = new Map<string, number>();
+  private readonly unknownSources = new Map<string, string[]>();
   private readonly versions = new Map<string, number>();
   private readonly strideIssues: SurveyFinding[] = [];
   private readonly countIssues: SurveyFinding[] = [];
@@ -139,6 +220,7 @@ export class SurveyAccumulator {
   private readonly failedDescents = new Map<string, number>();
   private readonly asContainer = new Map<string, number>();
   private readonly asLeaf = new Map<string, number>();
+  private readonly leafSizes = new Map<string, number[]>();
   private skipped = 0;
 
   /** Okunamayan bir girdiyi dogrudan hata olarak kaydeder. */
@@ -163,17 +245,20 @@ export class SurveyAccumulator {
     for (const chunk of walkChunks(tree)) {
       this.chunks.set(chunk.name, (this.chunks.get(chunk.name) ?? 0) + 1);
 
-      if (!isKnownChunk(chunk.id)) {
-        const key = `0x${chunk.id.toString(16).padStart(8, '0')}`;
-        this.unknown.set(key, (this.unknown.get(key) ?? 0) + 1);
-      }
-
+      if (!isKnownChunk(chunk.id)) this.recordUnknown(source, chunk.id);
       if (SKIPPED_IDS.has(chunk.id)) this.skipped += 1;
 
       // Bayrak kullaniminin tutarli olup olmadigini olc: ayni kimlik hem
       // kapsayici hem yaprak gorunuyorsa bir yerde sorun var.
-      const tally = chunk.hasSubChunks ? this.asContainer : this.asLeaf;
-      tally.set(chunk.name, (tally.get(chunk.name) ?? 0) + 1);
+      if (chunk.hasSubChunks) {
+        this.asContainer.set(chunk.name, (this.asContainer.get(chunk.name) ?? 0) + 1);
+      } else {
+        this.asLeaf.set(chunk.name, (this.asLeaf.get(chunk.name) ?? 0) + 1);
+        // Yaprak govde boyutlari saklanir: karar bunlarin dagilimina bakar.
+        const sizes = this.leafSizes.get(chunk.name);
+        if (sizes === undefined) this.leafSizes.set(chunk.name, [chunk.size]);
+        else sizes.push(chunk.size);
+      }
 
       if (chunk.descendFailed !== undefined) {
         this.failedDescents.set(chunk.name, (this.failedDescents.get(chunk.name) ?? 0) + 1);
@@ -186,21 +271,33 @@ export class SurveyAccumulator {
     this.checkMeshCounts(source, tree);
   }
 
+  /** Taninmayan kimligi sayar ve ilk birkac ornek dosyayi saklar. */
+  private recordUnknown(source: string, id: number): void {
+    const key = `0x${id.toString(16).padStart(8, '0')}`;
+    this.unknownCounts.set(key, (this.unknownCounts.get(key) ?? 0) + 1);
+
+    const sources = this.unknownSources.get(key);
+    if (sources === undefined) {
+      this.unknownSources.set(key, [source]);
+    } else if (sources.length < UNKNOWN_SAMPLE_LIMIT && !sources.includes(source)) {
+      sources.push(source);
+    }
+  }
+
   private checkStride(source: string, chunk: W3dChunk): void {
-    const expected = EXPECTED_STRIDES[chunk.id];
-    if (expected === undefined || chunk.size === 0) return;
-    if (chunk.size % expected.stride === 0) return;
+    const stride = EXPECTED_STRIDES[chunk.id];
+    if (stride === undefined || chunk.size === 0) return;
+    if (chunk.size % stride === 0) return;
     this.strideIssues.push({
       source,
-      detail: `${expected.label}: ${String(chunk.size)} bayt, ${String(expected.stride)} ile bolunmuyor`,
+      detail: `${chunk.name}: ${String(chunk.size)} bayt, ${String(stride)} ile bolunmuyor`,
     });
   }
 
   private recordVersion(chunk: W3dChunk): void {
-    const label = VERSIONED_CHUNKS[chunk.id];
-    if (label === undefined || chunk.data.length < 4) return;
+    if (!VERSIONED_IDS.has(chunk.id) || chunk.data.length < 4) return;
     const raw = new DataView(chunk.data.buffer, chunk.data.byteOffset, 4).getUint32(0, true);
-    const key = `${label} ${String(raw >>> 16)}.${String(raw & 0xffff)}`;
+    const key = `${chunk.name} ${String(raw >>> 16)}.${String(raw & 0xffff)}`;
     this.versions.set(key, (this.versions.get(key) ?? 0) + 1);
   }
 
@@ -241,18 +338,30 @@ export class SurveyAccumulator {
   }
 
   report(): SurveyReport {
-    const conflicts: [string, number, number][] = [];
+    const conflicts: FlagConflict[] = [];
     for (const [name, containerCount] of this.asContainer) {
       const leafCount = this.asLeaf.get(name) ?? 0;
-      if (leafCount > 0) conflicts.push([name, containerCount, leafCount]);
+      if (leafCount === 0) continue;
+      conflicts.push({
+        name,
+        asContainer: containerCount,
+        asLeaf: leafCount,
+        leafSizes: sizeStats(this.leafSizes.get(name) ?? []),
+      });
     }
-    conflicts.sort((a, b) => b[1] + b[2] - (a[1] + a[2]));
+    conflicts.sort((a, b) => b.asContainer + b.asLeaf - (a.asContainer + a.asLeaf));
+
+    const unknown = rankCounts(this.unknownCounts).map<UnknownChunk>(([id, count]) => ({
+      id,
+      count,
+      sources: this.unknownSources.get(id) ?? [],
+    }));
 
     return {
       fileCount: this.files,
       parseErrors: this.errors,
       chunkHistogram: rankCounts(this.chunks),
-      unknownChunks: rankCounts(this.unknown),
+      unknownChunks: unknown,
       versions: rankCounts(this.versions),
       strideMismatches: this.strideIssues,
       countMismatches: this.countIssues,
