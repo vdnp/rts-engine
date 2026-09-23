@@ -1,4 +1,10 @@
-import { type ChunkInput, sampleW3dFile, writeW3dChunks } from '@bfme/formats';
+import {
+  type ChunkInput,
+  MESH_HEADER3_VERSIONS,
+  SUB_CHUNK_FLAG,
+  sampleW3dFile,
+  writeW3dChunks,
+} from '@bfme/formats';
 import { describe, expect, it } from 'vitest';
 import { formatScan, formatSurvey } from '../src/scan';
 import {
@@ -204,6 +210,85 @@ describe('SurveyAccumulator', () => {
   });
 });
 
+describe('SurveyAccumulator — bayrak ve dalma', () => {
+  /** Govdesi metin olan ama alt chunk bayragi kurulu bir chunk uretir. */
+  function bogusContainer(id: number, text: string): Uint8Array {
+    const body = Uint8Array.from(text, (c) => c.charCodeAt(0));
+    const out = new Uint8Array(8 + body.length);
+    const view = new DataView(out.buffer);
+    view.setUint32(0, id, true);
+    view.setUint32(4, (body.length | SUB_CHUNK_FLAG) >>> 0, true);
+    out.set(body, 8);
+    return out;
+  }
+
+  it('dalinamayan chunk-u sayar, dosyayi hata saymaz', () => {
+    const accumulator = new SurveyAccumulator();
+    accumulator.add('x.w3d', bogusContainer(0x2e, 'UPerSpeed=1.0;'));
+
+    const report = accumulator.report();
+    expect(report.fileCount).toBe(1);
+    expect(report.parseErrors).toEqual([]);
+    expect(report.descendFailures).toEqual([['VERTEX_MAPPER_ARGS0', 1]]);
+  });
+
+  it('ayni kimlik hem kapsayici hem yaprak gorulurse bildirir', () => {
+    // Gercek soru: HIERARCHY 1472 ama HIERARCHY_HEADER 1356 — bazi
+    // HIERARCHY chunk-lari bayraksiz mi yazilmis? Olcen kontrol budur.
+    const accumulator = new SurveyAccumulator();
+    accumulator.add(
+      'kapsayici.w3d',
+      writeW3dChunks([{ id: 0x100, children: [{ id: 0x101, data: new Uint8Array(36) }] }]),
+    );
+    accumulator.add('yaprak.w3d', writeW3dChunks([{ id: 0x100, data: new Uint8Array(8) }]));
+
+    const conflicts = accumulator.report().flagConflicts;
+    expect(conflicts).toEqual([['HIERARCHY', 1, 1]]);
+  });
+
+  it('tutarli bayrak kullaniminda catisma bildirmez', () => {
+    const accumulator = new SurveyAccumulator();
+    accumulator.add('a.w3d', sampleW3dFile());
+    accumulator.add('b.w3d', sampleW3dFile());
+    expect(accumulator.report().flagConflicts).toEqual([]);
+  });
+
+  it('Faz 1-de yorumlanmayacak chunk-lari ayrica sayar', () => {
+    const accumulator = new SurveyAccumulator();
+    accumulator.add(
+      'x.w3d',
+      writeW3dChunks([
+        { id: 0x740, data: new Uint8Array(4) }, // BOX
+        { id: 0x900, data: new Uint8Array(4) }, // DAZZLE
+        { id: 0x0, children: [] }, // MESH — atlanacak degil
+      ]),
+    );
+    expect(accumulator.report().skippedChunks).toBe(2);
+  });
+});
+
+describe('SurveyAccumulator — surumler', () => {
+  it('iki MESH_HEADER3 surumunu ayri sayar', () => {
+    const accumulator = new SurveyAccumulator();
+    accumulator.add('a.w3d', sampleW3dFile({ meshVersion: MESH_HEADER3_VERSIONS.v42 }));
+    accumulator.add('b.w3d', sampleW3dFile({ meshVersion: MESH_HEADER3_VERSIONS.v50 }));
+
+    const versions = accumulator.report().versions;
+    expect(versions).toContainEqual(['MESH_HEADER3 4.2', 1]);
+    expect(versions).toContainEqual(['MESH_HEADER3 5.0', 1]);
+  });
+
+  it('her iki surumde de sayi-govde uyusmazligi uretmez', () => {
+    // Gercek veride 13159 mesh uzerinde sifir uyusmazlik cikti; fixture
+    // uretecimiz de ayni davranmali.
+    for (const version of [MESH_HEADER3_VERSIONS.v42, MESH_HEADER3_VERSIONS.v50]) {
+      const accumulator = new SurveyAccumulator();
+      accumulator.add('x.w3d', sampleW3dFile({ meshVersion: version }));
+      expect(accumulator.report().countMismatches).toEqual([]);
+    }
+  });
+});
+
 describe('formatScan', () => {
   const healthy: ArchiveReport = {
     path: '/oyun/Data/models.big',
@@ -294,7 +379,8 @@ describe('formatSurvey', () => {
     expect(text).toContain('chunk histogrami:');
     expect(text).toContain('taninmayan chunk yok.');
     expect(text).toContain('boyut tutarsizliklari (adim): yok');
-    expect(text).toContain('MESH_HEADER3 4.1');
+    expect(text).toContain('bayrak tutarsizligi: yok');
+    expect(text).toContain('MESH_HEADER3 4.2');
   });
 
   it('taninmayan chunk basligini vurgular', () => {

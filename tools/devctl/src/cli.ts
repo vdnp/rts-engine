@@ -20,7 +20,7 @@
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { sampleW3dFile } from '@bfme/formats';
+import { COMPRESSED_ANIMATION_VERSIONS, MESH_HEADER3_VERSIONS, sampleW3dFile } from '@bfme/formats';
 import { Command } from 'commander';
 // Node dosya kaynagi replay ile PAYLASILIR; ikinci bir gezici yazilmaz.
 import { nodeSource } from '../../replay/src/nodeSource.ts';
@@ -146,8 +146,7 @@ big
     }
     writeFileSync(path.resolve(process.cwd(), options.out), data);
     process.stderr.write(
-      `${entry.name}: ${String(entry.size)} ham bayt -> ${String(data.length)} bayt, ${options.out}
-`,
+      `${entry.name}: ${String(entry.size)} ham bayt -> ${String(data.length)} bayt, ${options.out}\n`,
     );
   });
 
@@ -181,8 +180,7 @@ big
 
     const summary = scanDirectory(root);
     if (options.json) {
-      process.stdout.write(`${JSON.stringify(summary)}
-`);
+      process.stdout.write(`${JSON.stringify(summary)}\n`);
     } else {
       write(formatScan(summary, root));
     }
@@ -198,8 +196,7 @@ w3d
     const bytes = readBytes(filePath);
     if (looksLikeBig(bytes)) {
       process.stderr.write(
-        `${filePath} bir BIG arsivi. Once "devctl big cat" ile girdiyi cikar.
-`,
+        `${filePath} bir BIG arsivi. Once "devctl big cat" ile girdiyi cikar.\n`,
       );
       process.exitCode = 1;
       return;
@@ -210,8 +207,30 @@ w3d
 w3d
   .command('sample <cikti>')
   .description("Ornek W3D fixture'i uretir (2 ucgen, 3 kemik, 10 kare)")
-  .action((outPath: string) => {
-    const bytes = sampleW3dFile();
+  .option('--mesh-version <surum>', 'MESH_HEADER3 surumu: 4.2 veya 5.0', '4.2')
+  .option('--compressed', 'sikistirilmis animasyon chunk-u da ekle', false)
+  .action((outPath: string, options: { meshVersion: string; compressed: boolean }) => {
+    const meshVersion =
+      options.meshVersion === '5.0'
+        ? MESH_HEADER3_VERSIONS.v50
+        : options.meshVersion === '4.2'
+          ? MESH_HEADER3_VERSIONS.v42
+          : undefined;
+    if (meshVersion === undefined) {
+      process.stderr.write(
+        `--mesh-version: 4.2 veya 5.0 bekleniyordu, "${options.meshVersion}" bulundu.
+`,
+      );
+      process.exitCode = 1;
+      return;
+    }
+
+    const bytes = sampleW3dFile({
+      meshVersion,
+      ...(options.compressed
+        ? { compressedAnimationVersion: COMPRESSED_ANIMATION_VERSIONS.v01 }
+        : {}),
+    });
     writeFileSync(path.resolve(process.cwd(), outPath), bytes);
     process.stderr.write(`${outPath}: ${String(bytes.length)} bayt yazildi
 `);
@@ -229,8 +248,7 @@ w3d
     const limit = parseIntOption(options.limit, 'limit', 1);
     const report = surveyDirectory(root, limit);
     if (options.json) {
-      process.stdout.write(`${JSON.stringify(report)}
-`);
+      process.stdout.write(`${JSON.stringify(report)}\n`);
     } else {
       write(formatSurvey(report, root));
     }

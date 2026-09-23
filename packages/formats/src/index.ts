@@ -35,6 +35,7 @@ export {
   SUB_CHUNK_FLAG,
   W3dError,
   chunkCounts,
+  collectDescendFailures,
   findChunk,
   formatChunkTree,
   parseW3dChunks,
@@ -42,18 +43,23 @@ export {
 } from './w3d/chunks';
 export type { W3dChunk } from './w3d/chunks';
 
-export { W3D_CHUNK_NAMES, chunkName, isKnownChunk } from './w3d/names';
+export { NOT_INTERPRETED_IN_PHASE1, W3D_CHUNK_NAMES, chunkName, isKnownChunk } from './w3d/names';
 
 export { ByteWriter, fixedString, writeW3dChunks } from './w3d/write';
 export type { ChunkInput } from './w3d/write';
 
 export {
+  COMPRESSED_ANIMATION_VERSIONS,
+  MESH_HEADER3_VERSIONS,
   SAMPLE_BONE_COUNT,
   SAMPLE_FRAME_COUNT,
   SAMPLE_TRIANGLE_COUNT,
   SAMPLE_VERTEX_COUNT,
   sampleAnimationChunk,
+  sampleCompressedAnimationChunk,
   sampleHierarchyChunk,
   sampleMeshChunk,
   sampleW3dFile,
+  w3dVersion,
 } from './w3d/fixtures';
+export type { SampleOptions } from './w3d/fixtures';

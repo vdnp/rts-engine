@@ -156,7 +156,9 @@ yeniden başlatma bildirimi gösterilir.
 | `pnpm devctl big ls <arşiv>`          | BIG arşivindeki dosyalar                           |
 | `pnpm devctl big cat <arşiv> <ad>`    | bir girdiyi çıkarır (RefPack'i açar)               |
 | `pnpm devctl w3d dump <dosya>`        | W3D chunk ağacı                                    |
-| `pnpm devctl w3d sample <çıktı>`      | örnek W3D fixture'ı üretir                         |
+| `pnpm devctl w3d sample <çıktı>`      | örnek W3D fixture'ı üretir (`--mesh-version`)      |
+| `pnpm devctl big scan [dizin]`        | kurulumdaki arşivleri tara                         |
+| `pnpm devctl w3d survey [dizin]`      | gerçek W3D'leri chunk düzeyinde geç                |
 | `pnpm format`                         | prettier                                           |
 
 `cook` komutu Faz 0'da **yoktur**; Faz 1'de gelecek.
@@ -175,21 +177,41 @@ kanıtlamaktı.
 - `test/fixtures.test.ts` commit edilmiş fixture'ın üretecin bugünkü
   çıktısıyla birebir aynı olduğunu doğrular — ikisi sessizce ayrılamaz.
 
-### Sıradaki dilim: gerçek dosya doğrulaması
+### Gerçek dosya doğrulaması (yapıldı, bir tur daha gerekiyor)
 
 Fixture round-trip'i, parser ile yazıcının **birbiriyle** tutarlı olduğunu
-kanıtlar — EA'nın dosyalarıyla tutarlı olduğunu değil. Bu kör nokta
-kapanmadan üstüne inşa edilmez.
+kanıtlar — EA'nın dosyalarıyla tutarlı olduğunu değil. `big scan` ve
+`w3d survey` bu kör noktayı kapatmak için var; rapor çıktısı repoya
+**girmez**, asset de girmez.
 
-- `devctl big scan <dizin>` — arşivleri tara, dosya sayısı, uzantı dağılımı,
-  okunamayan/şüpheli girdiler
-- `devctl w3d survey <dizin>` — bulunan W3D'leri chunk düzeyinde geç:
-  chunk ID histogramı, tanınmayan ID'ler, sürüm alanları, boyut
-  tutarsızlıkları, parse hataları
+İlk tur chunk ID tablosunda birkaç gerçek hata ortaya çıkardı (HLOD ailesi
+tamamen kaçırılmıştı, UV koordinatları yanlış ID'ye eşlenmişti). Tablo
+iki açık kaynağın birleşimiyle **komple değiştirildi**:
 
-Rapor çıktısı repoya **girmez**; asset de girmez. Rapora göre fixture
-üreteci düzeltilir: gerçekte görülen chunk çeşitliliğini ve sürüm
-alanlarını kapsasın.
+- Westwood `w3d_file.h` — orijinal chunk enum'u
+- OpenSAGE Docs `file-formats/w3d/index.rst` — SAGE/BFME eklemeleri
+
+**Chunk ID tablosu hafızadan yazılmaz.** Yeni bir ID eklenecekse kaynaktan
+alınır ve nereden geldiği yorumda yazılır. Tanınmayan bir ID'ye isim
+uydurulmaz; onaltılık görünmeye devam eder.
+
+Survey'in ölçtükleri: chunk ID histogramı, tanınmayan ID'ler, sürüm
+alanları, adım tutarsızlıkları, bildirilen sayı ↔ gövde uyuşmazlığı,
+**bayrak tutarsızlığı** (aynı ID'nin hem kapsayıcı hem yaprak görülmesi),
+dalınamayan chunk'lar.
+
+### Bilinen sürüm çeşitliliği
+
+Gerçek kurulumda görülen ve fixture üretecinin kapsadığı sürümler:
+
+| chunk                         | sürümler   |
+| ----------------------------- | ---------- |
+| `MESH_HEADER3`                | 4.2 ve 5.0 |
+| `COMPRESSED_ANIMATION_HEADER` | 0.1 ve 1.0 |
+
+13159 mesh üzerinde sayı↔gövde uyuşmazlığı **sıfır** çıktı: `NumTris` ve
+`NumVertices` her iki sürümde de aynı konumda (40 ve 44). Bunun ötesindeki
+alanlar henüz doğrulanmadı.
 
 ### Sonraki sıra (henüz kod yok)
 

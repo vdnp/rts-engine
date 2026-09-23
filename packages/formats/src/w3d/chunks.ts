@@ -37,6 +37,16 @@ export interface W3dChunk {
   /** Boyut alaninda alt chunk bayragi var miydi. */
   readonly hasSubChunks: boolean;
   readonly children: readonly W3dChunk[];
+  /**
+   * Chunk alt chunk iceriyormus gibi isaretliydi ama govdesi chunk akisi
+   * olarak COZULEMEDI; yaprak kabul edildi. Sebep burada durur.
+   *
+   * Bu gercekte olan bir sey: metin tasiyan bazi chunk'larda (orn.
+   * VERTEX_MAPPER_ARGS) bayrak yanlis kuruluyor ve govdedeki ASCII,
+   * chunk basligi gibi okunuyor. Dosyayi bu yuzden okunamaz saymak
+   * yanlis olur; not dusulur ve devam edilir.
+   */
+  readonly descendFailed?: string;
   /** Govde baytlari. Kaynak tamponun gorunumudur, kopya degil. */
   readonly data: Uint8Array;
 }
@@ -81,13 +91,28 @@ export function parseW3dChunks(bytes: Uint8Array, baseOffset = 0, depth = 0): W3
     }
 
     const data = bytes.subarray(bodyStart, bodyStart + size);
+
+    // Alt chunk bayragi bir IDDIADIR, garanti degil. Dalma denemesi
+    // basarisiz olursa chunk yaprak kabul edilir ve sebep kaydedilir;
+    // tek bir bozuk bayrak yuzunden dosyanin tamami atilmaz.
+    let children: W3dChunk[] = [];
+    let descendFailed: string | undefined;
+    if (hasSubChunks) {
+      try {
+        children = parseW3dChunks(data, baseOffset + bodyStart, depth + 1);
+      } catch (error) {
+        descendFailed = error instanceof Error ? error.message : String(error);
+      }
+    }
+
     chunks.push({
       id,
       name: chunkName(id),
       offset: baseOffset + cursor,
       size,
       hasSubChunks,
-      children: hasSubChunks ? parseW3dChunks(data, baseOffset + bodyStart, depth + 1) : [],
+      children,
+      ...(descendFailed === undefined ? {} : { descendFailed }),
       data,
     });
 
@@ -116,6 +141,17 @@ export function findChunk(chunks: readonly W3dChunk[], id: number): W3dChunk | u
   return undefined;
 }
 
+/** Dalinamamis chunk'lari agactan toplar. */
+export function collectDescendFailures(
+  chunks: readonly W3dChunk[],
+): { chunk: W3dChunk; reason: string }[] {
+  const out: { chunk: W3dChunk; reason: string }[] = [];
+  for (const chunk of walkChunks(chunks)) {
+    if (chunk.descendFailed !== undefined) out.push({ chunk, reason: chunk.descendFailed });
+  }
+  return out;
+}
+
 /** Agaci okunabilir metne cevirir; `devctl w3d dump` bunu yazdirir. */
 export function formatChunkTree(chunks: readonly W3dChunk[], indent = 0): string[] {
   const lines: string[] = [];
@@ -127,7 +163,11 @@ export function formatChunkTree(chunks: readonly W3dChunk[], indent = 0): string
         `0x${chunk.id.toString(16).padStart(8, '0')}  ` +
         `konum ${String(chunk.offset).padStart(8, ' ')}  ` +
         `boyut ${String(chunk.size).padStart(8, ' ')}` +
-        (chunk.hasSubChunks ? `  (${String(chunk.children.length)} alt)` : ''),
+        (chunk.descendFailed !== undefined
+          ? '  (dalinamadi)'
+          : chunk.hasSubChunks
+            ? `  (${String(chunk.children.length)} alt)`
+            : ''),
     );
     lines.push(...formatChunkTree(chunk.children, indent + 1));
   }

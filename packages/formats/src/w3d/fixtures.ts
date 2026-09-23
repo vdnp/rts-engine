@@ -23,6 +23,42 @@ export const W3D_PIVOTS = 0x00000102;
 export const W3D_ANIMATION = 0x00000200;
 export const W3D_ANIMATION_HEADER = 0x00000201;
 export const W3D_ANIMATION_CHANNEL = 0x00000202;
+export const W3D_COMPRESSED_ANIMATION = 0x00000280;
+export const W3D_COMPRESSED_ANIMATION_HEADER = 0x00000281;
+
+/** W3D surum alani: (major << 16) | minor. */
+export function w3dVersion(major: number, minor: number): number {
+  return ((major << 16) | minor) >>> 0;
+}
+
+/**
+ * Gercek kurulumda GORULEN MESH_HEADER3 surumleri.
+ *
+ * `devctl w3d survey` 13159 mesh uzerinde yalnizca bu ikisini buldu
+ * (4.2: 7011, 5.0: 6148) ve sayi-govde uyusmazligi SIFIR cikti. Yani
+ * `NumTris` ve `NumVertices` alanlari iki surumde de ayni konumda
+ * (40 ve 44). Bunun otesindeki alanlar henuz dogrulanmadi.
+ */
+export const MESH_HEADER3_VERSIONS = {
+  v42: w3dVersion(4, 2),
+  v50: w3dVersion(5, 0),
+} as const;
+
+/** Gercek kurulumda gorulen COMPRESSED_ANIMATION_HEADER surumleri. */
+export const COMPRESSED_ANIMATION_VERSIONS = {
+  v01: w3dVersion(0, 1),
+  v10: w3dVersion(1, 0),
+} as const;
+
+/**
+ * W3dCompressedAnimHeaderStruct boyutu.
+ *
+ * DIKKAT: yalnizca ilk dort baytin surum alani oldugu GERCEK VERIYLE
+ * dogrulandi (survey mantikli 0.1 / 1.0 degerleri okudu). Geri kalan
+ * duzen topluluk belgelerinden alindi ve henuz dogrulanmadi; animasyon
+ * diliminde ele alinacak.
+ */
+export const COMPRESSED_ANIMATION_HEADER_SIZE = 44;
 
 /** W3dMeshHeader3Struct boyutu. */
 export const MESH_HEADER3_SIZE = 116;
@@ -63,9 +99,9 @@ const TRIANGLES: readonly (readonly [number, number, number])[] = [
 /** Her kosenin bagli oldugu kemik. */
 const VERTEX_BONES: readonly number[] = [0, 1, 1, 2];
 
-function meshHeader(): Uint8Array {
+function meshHeader(version: number): Uint8Array {
   return new ByteWriter(MESH_HEADER3_SIZE)
-    .u32(0x00040001) // Version 4.1
+    .u32(version)
     .u32(0) // Attributes
     .raw(fixedString('ornek_mesh', 16))
     .raw(fixedString('ornek', 16))
@@ -113,12 +149,16 @@ function vertexInfluences(): Uint8Array {
   return writer.finish();
 }
 
-/** 2 ucgenli ornek mesh. */
-export function sampleMeshChunk(): ChunkInput {
+/**
+ * 2 ucgenli ornek mesh.
+ *
+ * @param version MESH_HEADER3 surumu; gercekte gorulen iki degerden biri.
+ */
+export function sampleMeshChunk(version: number = MESH_HEADER3_VERSIONS.v42): ChunkInput {
   return {
     id: W3D_MESH,
     children: [
-      { id: W3D_MESH_HEADER3, data: meshHeader() },
+      { id: W3D_MESH_HEADER3, data: meshHeader(version) },
       { id: W3D_VERTICES, data: vertices() },
       { id: W3D_VERTEX_NORMALS, data: normals() },
       { id: W3D_TRIANGLES, data: triangles() },
@@ -129,7 +169,7 @@ export function sampleMeshChunk(): ChunkInput {
 
 function hierarchyHeader(): Uint8Array {
   return new ByteWriter(HIERARCHY_HEADER_SIZE)
-    .u32(0x00040001)
+    .u32(w3dVersion(4, 1))
     .raw(fixedString('ornek_iskelet', 16))
     .u32(SAMPLE_BONE_COUNT)
     .vec3(0, 0, 0)
@@ -172,7 +212,7 @@ export function sampleHierarchyChunk(): ChunkInput {
 
 function animationHeader(): Uint8Array {
   return new ByteWriter(ANIMATION_HEADER_SIZE)
-    .u32(0x00040001)
+    .u32(w3dVersion(4, 1))
     .raw(fixedString('ornek_anim', 16))
     .raw(fixedString('ornek_iskelet', 16))
     .u32(SAMPLE_FRAME_COUNT)
@@ -214,7 +254,47 @@ export function sampleAnimationChunk(): ChunkInput {
   };
 }
 
+/**
+ * Sikistirilmis animasyon ornegi.
+ *
+ * Govdenin YALNIZCA surum alani dogrulanmistir; kalan alanlar
+ * ANIMATION_HEADER duzenini taklit eder ve gercek veriyle henuz
+ * karsilastirilmamistir.
+ */
+export function sampleCompressedAnimationChunk(
+  version: number = COMPRESSED_ANIMATION_VERSIONS.v01,
+): ChunkInput {
+  const header = new ByteWriter(COMPRESSED_ANIMATION_HEADER_SIZE)
+    .u32(version)
+    .raw(fixedString('ornek_sikisik', 16))
+    .raw(fixedString('ornek_iskelet', 16))
+    .u32(SAMPLE_FRAME_COUNT)
+    .u16(30) // kare hizi
+    .u16(0) // flavor
+    .finish();
+
+  return {
+    id: W3D_COMPRESSED_ANIMATION,
+    children: [{ id: W3D_COMPRESSED_ANIMATION_HEADER, data: header }],
+  };
+}
+
+export interface SampleOptions {
+  /** MESH_HEADER3 surumu. */
+  readonly meshVersion?: number;
+  /** Verilirse dosyaya sikistirilmis animasyon da eklenir. */
+  readonly compressedAnimationVersion?: number;
+}
+
 /** Mesh, iskelet ve animasyonu tek bir dosyada birlestirir. */
-export function sampleW3dFile(): Uint8Array {
-  return writeW3dChunks([sampleMeshChunk(), sampleHierarchyChunk(), sampleAnimationChunk()]);
+export function sampleW3dFile(options: SampleOptions = {}): Uint8Array {
+  const chunks: ChunkInput[] = [
+    sampleMeshChunk(options.meshVersion ?? MESH_HEADER3_VERSIONS.v42),
+    sampleHierarchyChunk(),
+    sampleAnimationChunk(),
+  ];
+  if (options.compressedAnimationVersion !== undefined) {
+    chunks.push(sampleCompressedAnimationChunk(options.compressedAnimationVersion));
+  }
+  return writeW3dChunks(chunks);
 }

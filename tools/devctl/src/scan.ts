@@ -262,6 +262,37 @@ export function formatSurvey(report: SurveyReport, root: string): string[] {
     );
   }
 
+  if (report.flagConflicts.length > 0) {
+    lines.push(
+      '',
+      `BAYRAK TUTARSIZLIGI (${String(report.flagConflicts.length)} chunk):`,
+      '  ayni kimlik hem kapsayici hem yaprak olarak gorulmus',
+      ...table(
+        ['chunk', 'kapsayici', 'yaprak'],
+        report.flagConflicts.map(([name, container, leaf]) => [
+          name,
+          String(container),
+          String(leaf),
+        ]),
+      ),
+    );
+  } else {
+    lines.push('', 'bayrak tutarsizligi: yok');
+  }
+
+  if (report.descendFailures.length > 0) {
+    lines.push(
+      '',
+      'dalinamadi (yaprak kabul edildi, dosya atilmadi):',
+      ...table(
+        ['chunk', 'adet'],
+        report.descendFailures.map(([name, count]) => [name, String(count)]),
+      ),
+    );
+  }
+
+  lines.push('', `Faz 1'de yorumlanmayacagi bilinen chunk: ${String(report.skippedChunks)}`);
+
   lines.push(
     '',
     'surum alanlari:',

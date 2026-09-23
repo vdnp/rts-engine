@@ -9,6 +9,7 @@
  * Buradan hicbir asset veya rapor depoya girmez; cikti stdout'a yazilir.
  */
 import {
+  NOT_INTERPRETED_IN_PHASE1,
   type W3dChunk,
   W3dError,
   chunkName,
@@ -16,6 +17,8 @@ import {
   parseW3dChunks,
   walkChunks,
 } from '@bfme/formats';
+
+const SKIPPED_IDS = new Set(NOT_INTERPRETED_IN_PHASE1);
 
 // ── Arsiv taramasi ──────────────────────────────────────────────────────
 
@@ -107,6 +110,21 @@ export interface SurveyReport {
   readonly strideMismatches: readonly SurveyFinding[];
   /** Bildirilen sayilarla govde boyutunun uyusmadigi yerler. */
   readonly countMismatches: readonly SurveyFinding[];
+  /**
+   * Alt chunk bayragi kurulu olup govdesi cozulemeyen chunk'lar.
+   * Dosya atilmaz, yaprak kabul edilir; sayisi burada gorunur.
+   */
+  readonly descendFailures: readonly (readonly [string, number])[];
+  /**
+   * BAYRAK TUTARSIZLIGI: ayni chunk kimliginin hem kapsayici hem yaprak
+   * olarak gorulmesi. Bir kimlik her zaman ayni sekilde yazilmali; ikisi
+   * birden gorunuyorsa ya yazici tutarsiz ya da okumamiz yanlis.
+   *
+   * `[ad, kapsayici sayisi, yaprak sayisi]`.
+   */
+  readonly flagConflicts: readonly (readonly [string, number, number])[];
+  /** Faz 1'de govdesi yorumlanmayacagi bilinen chunk sayisi. */
+  readonly skippedChunks: number;
 }
 
 /** Anket sirasinda biriken sayaclar. */
@@ -118,6 +136,10 @@ export class SurveyAccumulator {
   private readonly strideIssues: SurveyFinding[] = [];
   private readonly countIssues: SurveyFinding[] = [];
   private readonly errors: SurveyFinding[] = [];
+  private readonly failedDescents = new Map<string, number>();
+  private readonly asContainer = new Map<string, number>();
+  private readonly asLeaf = new Map<string, number>();
+  private skipped = 0;
 
   /** Okunamayan bir girdiyi dogrudan hata olarak kaydeder. */
   addFailure(source: string, detail: string): void {
@@ -144,6 +166,17 @@ export class SurveyAccumulator {
       if (!isKnownChunk(chunk.id)) {
         const key = `0x${chunk.id.toString(16).padStart(8, '0')}`;
         this.unknown.set(key, (this.unknown.get(key) ?? 0) + 1);
+      }
+
+      if (SKIPPED_IDS.has(chunk.id)) this.skipped += 1;
+
+      // Bayrak kullaniminin tutarli olup olmadigini olc: ayni kimlik hem
+      // kapsayici hem yaprak gorunuyorsa bir yerde sorun var.
+      const tally = chunk.hasSubChunks ? this.asContainer : this.asLeaf;
+      tally.set(chunk.name, (tally.get(chunk.name) ?? 0) + 1);
+
+      if (chunk.descendFailed !== undefined) {
+        this.failedDescents.set(chunk.name, (this.failedDescents.get(chunk.name) ?? 0) + 1);
       }
 
       this.checkStride(source, chunk);
@@ -208,6 +241,13 @@ export class SurveyAccumulator {
   }
 
   report(): SurveyReport {
+    const conflicts: [string, number, number][] = [];
+    for (const [name, containerCount] of this.asContainer) {
+      const leafCount = this.asLeaf.get(name) ?? 0;
+      if (leafCount > 0) conflicts.push([name, containerCount, leafCount]);
+    }
+    conflicts.sort((a, b) => b[1] + b[2] - (a[1] + a[2]));
+
     return {
       fileCount: this.files,
       parseErrors: this.errors,
@@ -216,6 +256,9 @@ export class SurveyAccumulator {
       versions: rankCounts(this.versions),
       strideMismatches: this.strideIssues,
       countMismatches: this.countIssues,
+      descendFailures: rankCounts(this.failedDescents),
+      flagConflicts: conflicts,
+      skippedChunks: this.skipped,
     };
   }
 }

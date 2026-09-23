@@ -6,6 +6,7 @@ import {
   SUB_CHUNK_FLAG,
   W3dError,
   chunkCounts,
+  collectDescendFailures,
   findChunk,
   formatChunkTree,
   parseW3dChunks,
@@ -123,13 +124,39 @@ describe('W3D — bozuk dosya', () => {
     expect(() => parseW3dChunks(padded)).toThrow(/artik bayt/);
   });
 
-  it('asiri ic ice gecmeyi sinirlar', () => {
+  it('asiri ic ice gecmede dalmayi durdurur, dosyayi atmaz', () => {
+    // Derinlik siniri ozyinelemeyi hala bagliyor; ama artik dosyayi
+    // okunamaz saymak yerine o noktada yaprak kabul edip not dusuyoruz.
     let node: { id: number; children?: unknown[] } = { id: 1 };
     for (let i = 0; i < MAX_CHUNK_DEPTH + 5; i++) {
       node = { id: 1, children: [node] };
     }
     const bytes = writeW3dChunks([node as never]);
-    expect(() => parseW3dChunks(bytes)).toThrow(/ic ice gecme sinirini/);
+
+    const tree = parseW3dChunks(bytes);
+    const failures = collectDescendFailures(tree);
+    expect(failures).toHaveLength(1);
+    expect(failures[0]?.reason).toMatch(/ic ice gecme sinirini/);
+  });
+
+  it('metin tasiyan chunk alt chunk sanilirsa yaprak kabul edilir', () => {
+    // Gercekte gorulen durum: VERTEX_MAPPER_ARGS govdesi ASCII metin ama
+    // alt chunk bayragi kurulu. Govdedeki metin chunk basligi gibi
+    // okunuyor ve cozulemiyor. Dosya bu yuzden atilmamali.
+    const text = Uint8Array.from('UPerSpeed=1.0;', (c) => c.charCodeAt(0));
+    const bytes = writeW3dChunks([{ id: 0x2e, children: [] }]);
+    const patched = new Uint8Array(8 + text.length);
+    patched.set(bytes.subarray(0, 8));
+    patched.set(text, 8);
+    // boyutu metin uzunluguna cek, alt chunk bayragini birak
+    new DataView(patched.buffer).setUint32(4, (text.length | SUB_CHUNK_FLAG) >>> 0, true);
+
+    const tree = parseW3dChunks(patched);
+    expect(tree).toHaveLength(1);
+    expect(tree[0]?.name).toBe('VERTEX_MAPPER_ARGS0');
+    expect(tree[0]?.children).toEqual([]);
+    expect(tree[0]?.descendFailed).toBeDefined();
+    expect(latin1(tree[0]?.data ?? new Uint8Array())).toBe('UPerSpeed=1.0;');
   });
 });
 
