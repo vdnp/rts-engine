@@ -1,0 +1,7 @@
+# Okcu: daha hizli, daha kirilgan.
+[unit.gondor_archer]
+name = "Gondor Okcusu"
+maxHealth = 160
+speed = 9.0
+turnRate = 400.0
+radius = 0.5

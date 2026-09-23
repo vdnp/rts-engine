@@ -1,0 +1,7 @@
+# Ork okcusu: en cevik, en kirilgan.
+[unit.mordor_archer]
+name = "Mordor Ork Okcusu"
+maxHealth = 100
+speed = 9.5
+turnRate = 440.0
+radius = 0.45

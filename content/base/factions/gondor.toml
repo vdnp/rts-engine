@@ -1,0 +1,9 @@
+[faction.gondor]
+name = "Gondor"
+# Oyuncu rengi, RGB 0-255. Ekrandaki kutular bu rengi alir.
+color = [188, 198, 214]
+# Kadro. Bir birim TAM OLARAK bir kadroda gecmelidir.
+# Mod'lar bu listeyi genisletebilir:
+#   [append.faction.gondor]
+#   units = ["yeni_birim"]
+units = ["gondor_soldier", "gondor_archer"]

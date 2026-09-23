@@ -1,0 +1,10 @@
+# Agir piyade: yavas ama dayanikli.
+[unit.gondor_soldier]
+name = "Gondor Askeri"
+maxHealth = 240
+# Dunya birimi / saniye. Tick'e donusumu sim yapar.
+speed = 8.0
+# Derece / saniye.
+turnRate = 360.0
+# Carpisma yaricapi, dunya birimi. Ekrandaki kutunun boyu da bundan gelir.
+radius = 0.55

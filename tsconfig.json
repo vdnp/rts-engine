@@ -4,7 +4,13 @@
     "lib": ["ES2023"],
     "types": ["node"],
     "allowJs": true,
-    "checkJs": false
+    "checkJs": false,
+    "paths": {
+      "@bfme/sim-math": ["./packages/sim-math/src/index.ts"],
+      "@bfme/schema": ["./packages/schema/src/index.ts"],
+      "@bfme/modloader": ["./packages/modloader/src/index.ts"],
+      "@bfme/core-sim": ["./packages/core-sim/src/index.ts"]
+    }
   },
   "include": ["vitest.config.ts", "eslint.config.js", "scripts/**/*.ts", "test/**/*.ts"]
 }

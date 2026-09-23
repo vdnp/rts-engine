@@ -1,0 +1,12 @@
+# Vanilla icerik paketi.
+#
+# Yukleyici icin bu da diger paketler gibi bir mod'dur; ozel muamele gormez,
+# yalnizca etkin mod listesinde ilk sirada gelir.
+#
+# Bu dizinde HİCBİR EA veya Tolkien asset'i bulunmaz. Buradaki sayilar bu
+# proje icin yazilmis ozgun denge verileridir.
+
+id = "base"
+name = "Temel Icerik"
+version = "1.0.0"
+description = "Faz 0 vanilla icerigi: iki fraksiyon, dort birim."

@@ -4,6 +4,12 @@
  * Vanilla icerik ozel muamele gormez; `content/base/` de yukleyici icin diger
  * paketler gibidir, sadece etkin mod listesinde ilk sirada gelir.
  */
+// Hata bicimlendiricileri semadan gelir, ama `loadContent` cagiranin elinde
+// `ContentIssue` listesi kalir; ikinci bir paket import ettirmemek icin
+// yeniden disari verilir.
+export { ContentError, formatIssue, formatIssues } from '@bfme/schema';
+export type { ContentIssue } from '@bfme/schema';
+
 export { loadContent } from './pipeline';
 export type { LoadOptions, LoadResult } from './pipeline';
 

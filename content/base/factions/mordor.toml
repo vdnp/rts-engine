@@ -1,0 +1,4 @@
+[faction.mordor]
+name = "Mordor"
+color = [150, 52, 44]
+units = ["mordor_orc", "mordor_archer"]

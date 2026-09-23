@@ -1,0 +1,7 @@
+# Ork: ucuz ve hizli.
+[unit.mordor_orc]
+name = "Mordor Orku"
+maxHealth = 120
+speed = 10.0
+turnRate = 420.0
+radius = 0.5
