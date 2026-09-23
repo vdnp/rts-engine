@@ -113,6 +113,24 @@ importers:
 
   packages/sim-math: {}
 
+  tools/replay:
+    dependencies:
+      '@bfme/core-sim':
+        specifier: workspace:*
+        version: link:../../packages/core-sim
+      '@bfme/modloader':
+        specifier: workspace:*
+        version: link:../../packages/modloader
+      '@bfme/schema':
+        specifier: workspace:*
+        version: link:../../packages/schema
+      '@bfme/sim-math':
+        specifier: workspace:*
+        version: link:../../packages/sim-math
+      commander:
+        specifier: 15.0.0
+        version: 15.0.0
+
 packages:
 
   '@babel/helper-string-parser@7.29.7':
@@ -452,6 +470,10 @@ packages:
   chai@6.2.2:
     resolution: {integrity: sha512-NUPRluOfOiTKBKvWPtSD4PhFvWCqOi0BGStNWs57X9js7XGTprSmFoz5F0tWhR4WPjNeR9jXqdC7/UpSJTnlRg==}
     engines: {node: '>=18'}
+
+  commander@15.0.0:
+    resolution: {integrity: sha512-z67u4ZhzCL/Tydu1lJARtEZYWbWaN7oYLHbsuzocr6y4N6WZAagG3RQ4FW61V1/0+jImpj293XfrcYnd1qxtPg==}
+    engines: {node: '>=22.12.0'}
 
   cross-spawn@7.0.6:
     resolution: {integrity: sha512-uV2QOWP2nWzsy2aMp8aRibhi9dlzF5Hgh5SHaB9OiTGEyDTiJJyx0uy51QXdyWbtAHNua4XJzUKca3OzKUd3vA==}
@@ -1265,6 +1287,8 @@ snapshots:
       qified: 0.10.1
 
   chai@6.2.2: {}
+
+  commander@15.0.0: {}
 
   cross-spawn@7.0.6:
     dependencies:

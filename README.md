@@ -47,6 +47,25 @@ pnpm dev
 | `pnpm test:golden:update`             | golden dosyalarını yeniden üretir        |
 | `pnpm replay --seed 42 --ticks 10000` | headless determinizm doğrulayıcı         |
 
+## Determinizm
+
+Simülasyonun saflığı bir iddia değil, çalıştırılabilir bir kontrol:
+
+```bash
+$ pnpm replay --seed 42 --ticks 10000 --mods base
+dataHash: 6f461038   finalStateHash: 32e494c3   ticks: 10000   varlik: 256   ms: 853
+```
+
+Bu araç render'a, DOM'a ve duvar saatine hiç dokunmaz; `@bfme/engine` ve
+`@bfme/core-present` paketlerini import etmesi ESLint tarafından engellenir.
+Çalışabiliyor olması, sim'in gerçekten tarayıcıdan bağımsız olduğunun kanıtıdır.
+
+CI her derlemede replay'i iki kez koşup sonuçları birbirine ve
+`tools/replay/expected.json` içindeki değere karşılaştırır. Determinizm
+bozulursa build kırmızı olur. İçeriği veya sim kurallarını bilerek
+değiştirdiyseniz beklenen değeri güncelleyin ve commit mesajında gerekçesini
+yazın.
+
 ## Yapı
 
 ```

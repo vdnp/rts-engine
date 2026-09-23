@@ -1,0 +1,8 @@
+{
+  "_aciklama": "CI determinizm kapisinin beklenen degeri. Icerik veya sim kurallari BILEREK degistiginde guncellenir ve commit mesajinda gerekcesi yazilir. Beklenmedik bir degisiklik determinizmin bozuldugu anlamina gelir.",
+  "seed": 42,
+  "ticks": 10000,
+  "mods": "base",
+  "dataHash": "6f461038",
+  "finalStateHash": "32e494c3"
+}

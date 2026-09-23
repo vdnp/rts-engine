@@ -1,0 +1,16 @@
+{
+  "name": "@bfme/replay",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@bfme/core-sim": "workspace:*",
+    "@bfme/modloader": "workspace:*",
+    "@bfme/schema": "workspace:*",
+    "@bfme/sim-math": "workspace:*",
+    "commander": "15.0.0"
+  }
+}

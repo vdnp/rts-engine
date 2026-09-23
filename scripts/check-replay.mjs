@@ -1,6 +1,11 @@
 // CI determinizm kapisi.
+//
 // Replay'i iki kez calistirir, ciktilarin birbirine ve commit edilmis beklenen
 // degere esit oldugunu dogrular. Determinizm bozulursa build kirmizi olur.
+//
+// Alt surecler `process.execPath` (node) ile dogrudan baslatilir; paket
+// yoneticisi cagrilmaz. Node artik `.cmd` dosyalarini shell olmadan
+// spawn etmedigi icin bu, Windows'ta da calisan tek yoldur.
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -9,6 +14,8 @@ import { fileURLToPath } from 'node:url';
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const replayDir = path.join(repoRoot, 'tools', 'replay');
 const expectedPath = path.join(replayDir, 'expected.json');
+const bundlePath = path.join(replayDir, 'dist', 'replay.js');
+const viteBin = path.join(repoRoot, 'node_modules', 'vite', 'bin', 'vite.js');
 
 // Replay araci Faz 0'in son adiminda geliyor. O gelene kadar kapi bekler.
 // Arac var olup beklenen deger yoksa bu bir hatadir: kapi sessizce atlanamaz.
@@ -25,13 +32,19 @@ if (!existsSync(expectedPath)) {
 /** @type {{ seed: number; ticks: number; mods: string; dataHash: string; finalStateHash: string }} */
 const expected = JSON.parse(readFileSync(expectedPath, 'utf8'));
 
-const pnpm = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
+function build() {
+  execFileSync(
+    process.execPath,
+    [viteBin, 'build', '--config', path.join(replayDir, 'vite.config.ts')],
+    { cwd: repoRoot, stdio: 'inherit' },
+  );
+}
 
 function runReplay() {
   const stdout = execFileSync(
-    pnpm,
+    process.execPath,
     [
-      'replay',
+      bundlePath,
       '--seed',
       String(expected.seed),
       '--ticks',
@@ -53,6 +66,7 @@ function runReplay() {
   return JSON.parse(line);
 }
 
+build();
 const a = runReplay();
 const b = runReplay();
 
