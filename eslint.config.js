@@ -287,6 +287,23 @@ export default defineConfig(
     },
   },
 
+  // core-present'in tsconfig'i DOM lib'ini SADECE engine kaynagini tipleyebilmek
+  // icin iceriyor (yol eslemesi engine'i kaynaktan cozuyor). Present'in kendisi
+  // DOM'a dokunamaz: tarayiciya erisim her zaman engine uzerinden olur.
+  {
+    files: ['packages/core-present/src/**/*.ts'],
+    rules: {
+      'no-restricted-globals': [
+        'error',
+        { name: 'document', message: 'core-present DOM-a dokunamaz; engine uzerinden gec.' },
+        { name: 'window', message: 'core-present DOM-a dokunamaz; engine uzerinden gec.' },
+        { name: 'navigator', message: 'core-present DOM-a dokunamaz; engine uzerinden gec.' },
+        { name: 'performance', message: 'Zaman disaridan verilir; present saat okumaz.' },
+        { name: 'requestAnimationFrame', message: 'Kare dongusu app katmaninin isidir.' },
+      ],
+    },
+  },
+
   // `console` yalnizca gunluk modulunde; baska hicbir yerde degil.
   {
     files: ['packages/engine/src/log.ts'],

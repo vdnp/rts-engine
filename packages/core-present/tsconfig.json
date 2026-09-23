@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM"],
+    "types": [],
+    "paths": {
+      "@bfme/sim-math": ["../sim-math/src/index.ts"],
+      "@bfme/schema": ["../schema/src/index.ts"],
+      "@bfme/core-sim": ["../core-sim/src/index.ts"],
+      "@bfme/engine": ["../engine/src/index.ts"]
+    }
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts"]
+}
