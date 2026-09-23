@@ -156,10 +156,32 @@ export function parseConfig(raw: Readonly<Record<string, string | undefined>>): 
 }
 
 /**
+ * Gelistirme kolayligi: `?mods=a,b` mod listesinin yerine gecer.
+ *
+ * GECICI bir cozumdur. Kalici mod secimi bir launch profili gerektiriyor;
+ * o, masaustu kabuguyla birlikte Faz 2'de gelecek. Buraya baska bir alan
+ * EKLEME — bu kapi genislerse yapilandirmanin tek kaynagi olma ozelligi
+ * asinir.
+ *
+ * Saf fonksiyondur; `readConfig` onu yalnizca dev modunda cagirir.
+ */
+export function withDevOverrides(config: AppConfig, search: string): AppConfig {
+  const raw = new URLSearchParams(search).get('mods');
+  if (raw === null) return config;
+  const mods = raw
+    .split(',')
+    .map((mod) => mod.trim())
+    .filter((mod) => mod.length > 0);
+  return mods.length === 0 ? config : { ...config, enabledMods: mods };
+}
+
+/**
  * Calisma anindaki yapilandirma.
  *
  * `import.meta.env` DEPODA YALNIZCA burada okunur.
  */
 export function readConfig(): AppConfig {
-  return parseConfig(import.meta.env);
+  const config = parseConfig(import.meta.env);
+  // Uretim derlemesinde query string yapilandirmayi DEGISTIREMEZ.
+  return import.meta.env.DEV ? withDevOverrides(config, window.location.search) : config;
 }

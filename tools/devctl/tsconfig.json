@@ -6,7 +6,8 @@
     "paths": {
       "@bfme/sim-math": ["../../packages/sim-math/src/index.ts"],
       "@bfme/schema": ["../../packages/schema/src/index.ts"],
-      "@bfme/modloader": ["../../packages/modloader/src/index.ts"]
+      "@bfme/modloader": ["../../packages/modloader/src/index.ts"],
+      "@bfme/formats": ["../../packages/formats/src/index.ts"]
     }
   },
   "include": ["src/**/*.ts", "test/**/*.ts", "vite.config.ts"]

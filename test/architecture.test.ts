@@ -92,6 +92,36 @@ describe('katman bağımlılık yönü', () => {
     expect(rules).toContain('no-restricted-imports');
   });
 
+  it.each([
+    ['packages/core-sim/src/__probe__.ts'],
+    ['packages/engine/src/__probe__.ts'],
+    ['packages/core-present/src/__probe__.ts'],
+    ['packages/app/src/__probe__.ts'],
+    ['packages/modloader/src/__probe__.ts'],
+  ])('%s formats paketini import edemez', async (file) => {
+    // formats orijinal oyun bicimlerini cozer ve yalnizca derleme zamani
+    // araclari icindir; calisma aninda yalnizca kendi pismis bicimimiz okunur.
+    const rules = await rulesTriggeredBy(file, 'import "@bfme/formats";\n');
+    expect(rules).toContain('no-restricted-imports');
+  });
+
+  it('devctl formats paketini import edebilir', async () => {
+    const rules = await rulesTriggeredBy(
+      'tools/devctl/src/__probe__.ts',
+      'import "@bfme/formats";\n',
+    );
+    expect(rules).toEqual([]);
+  });
+
+  it('formats izni araca gore verilir, tools/** geneline degil', async () => {
+    // replay yalnizca sim kosar; bicim cozucusune ihtiyaci yok.
+    const rules = await rulesTriggeredBy(
+      'tools/replay/src/__probe__.ts',
+      'import "@bfme/formats";\n',
+    );
+    expect(rules).toContain('no-restricted-imports');
+  });
+
   it('core-sim -> sim-math importuna izin verir', async () => {
     const rules = await rulesTriggeredBy(SIM_FILE, 'import "@bfme/sim-math";\n');
     expect(rules).toEqual([]);

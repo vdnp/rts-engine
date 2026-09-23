@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ConfigError, parseConfig } from '../src/config';
+import { ConfigError, parseConfig, withDevOverrides } from '../src/config';
 
 describe('parseConfig — varsayilanlar', () => {
   it('.env OLMADAN calisir', () => {
@@ -115,5 +115,34 @@ describe('parseConfig — hata raporu', () => {
       expect(message).toContain('VITE_BFME_LOG_LEVEL');
       expect(message).toContain('VITE_BFME_SEED');
     }
+  });
+});
+
+describe('withDevOverrides', () => {
+  const base = parseConfig({});
+
+  it('?mods mod listesinin yerine gecer', () => {
+    expect(withDevOverrides(base, '?mods=base,alpha').enabledMods).toEqual(['base', 'alpha']);
+  });
+
+  it('bosluklari kirpar ve bos ogeleri atar', () => {
+    expect(withDevOverrides(base, '?mods= base , , beta ').enabledMods).toEqual(['base', 'beta']);
+  });
+
+  it('?mods yoksa yapilandirmayi oldugu gibi birakir', () => {
+    expect(withDevOverrides(base, '')).toBe(base);
+    expect(withDevOverrides(base, '?seed=1')).toBe(base);
+  });
+
+  it('bos ?mods yok sayilir', () => {
+    expect(withDevOverrides(base, '?mods=').enabledMods).toEqual(base.enabledMods);
+    expect(withDevOverrides(base, '?mods=,,,').enabledMods).toEqual(base.enabledMods);
+  });
+
+  it('yalnizca mod listesine dokunur', () => {
+    const result = withDevOverrides(base, '?mods=x&seed=99&hot=false');
+    expect(result.seed).toBe(base.seed);
+    expect(result.logLevel).toBe(base.logLevel);
+    expect(result.hotReload).toBe(base.hotReload);
   });
 });

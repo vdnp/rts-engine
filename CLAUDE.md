@@ -33,7 +33,8 @@ Bağımlılık yönü tek taraflıdır: **content → core → engine**. Ters im
 | `core-present` | `sim-math`, `schema`, `core-sim`, `engine`    |
 | `app`          | hepsi                                         |
 | `tools/replay` | `sim-math`, `schema`, `modloader`, `core-sim` |
-| `tools/devctl` | `schema`, `modloader`                         |
+| `tools/devctl` | `schema`, `modloader`, `formats`              |
+| `formats`      | —                                             |
 
 ## Değişmez kurallar
 
@@ -57,6 +58,11 @@ Bağımlılık yönü tek taraflıdır: **content → core → engine**. Ters im
    `packages/engine/src/render/babylon/` altında olabilir.
 9. **Node API'leri `packages/` içinde yok.** Dosya erişimi bir `Source` arayüzü
    üzerinden enjekte edilir (Node impl `tools/`, tarayıcı impl `packages/app/vite/`).
+10. **`@bfme/formats` çalışma anında kullanılmaz.** Orijinal oyunun dosya
+    biçimlerini (BIG, W3D) çözer ve yalnızca derleme zamanı araçları içindir.
+    `app` dahil hiçbir runtime paketi onu import edemez; izin araç bazında
+    verilir (`LAYERS` tablosu). Çalışma anında yalnızca kendi pişmiş
+    biçimimiz okunur.
 
 ## Sim / present sözleşmesi
 
@@ -112,7 +118,11 @@ yeniden başlatma bildirimi gösterilir.
 - ❌ `readonly`'yi `as` ile kırmak
 - ❌ `any`, `@ts-ignore`, `@ts-nocheck`
 - ❌ EA / Tolkien asset'i (model, doku, ses, metin) commit'lemek
-- ❌ Orijinal oyun binary'sini decompile / disassemble etmek
+- ❌ Orijinal oyun binary'sini decompile / disassemble etmek; biçimler yalnızca
+  topluluk dokümantasyonundan ve dosyanın kendisinden çözülür
+- ❌ `@bfme/formats`'ı runtime paketlerinden import etmek
+- ❌ Test fixture'ı olarak gerçek oyun dosyası commit'lemek; fixture'lar
+  `devctl w3d sample` ile üretilir
 - ❌ Bölüm listesinde olmayan bağımlılık eklemek (önce sor)
 - ❌ TODO / stub / boş klasör bırakmak
 - ❌ Golden dosyayı elle düzenlemek
@@ -132,11 +142,33 @@ yeniden başlatma bildirimi gösterilir.
 | `pnpm replay --seed 42 --ticks 10000` | headless determinizm doğrulayıcı                   |
 | `pnpm devctl mods`                    | içerik paketleri, bağımlılıkları, yükleme sırası   |
 | `pnpm devctl validate --mods base`    | tüm içerik hatalarını dosya:satır ile raporlar     |
+| `pnpm devctl big ls <arşiv>`          | BIG arşivindeki dosyalar                           |
+| `pnpm devctl big cat <arşiv> <ad>`    | bir girdiyi çıkarır (RefPack'i açar)               |
+| `pnpm devctl w3d dump <dosya>`        | W3D chunk ağacı                                    |
+| `pnpm devctl w3d sample <çıktı>`      | örnek W3D fixture'ı üretir                         |
 | `pnpm format`                         | prettier                                           |
 
 `cook` komutu Faz 0'da **yoktur**; Faz 1'de gelecek.
 
-## Faz 0 kapsam sınırı
+## Faz 1 — biçim çözme (devam ediyor)
 
-Faz 0'da **yok**: pathfinding, savaş, bina, kaynak, ağ, kahraman, horde, asset
-pipeline, WASM, masaüstü kabuğu. İleride lazım olacak diye klasör veya arayüz açma.
+Şu an yapılmış olan bir **spike**'tır: BIG arşiv okuyucu ve W3D chunk ağacı
+parser'ı. Ekrana hiçbir şey çizilmez. Amaç biçimi gerçekten okuyabildiğimizi
+kanıtlamaktı.
+
+- Biçimler topluluk dokümantasyonundan ve dosyanın kendisinden çözülür.
+  Decompile edilmiş koddan **türetilmez**.
+- Test fixture'ları `@bfme/formats` içindeki kendi yazıcımızla üretilir ve
+  repoya girer. EA asset'i asla girmez; `BFME_GAME_PATH` altındaki gerçek
+  dosyalar yalnızca elle doğrulama içindir.
+- `test/fixtures.test.ts` commit edilmiş fixture'ın üretecin bugünkü
+  çıktısıyla birebir aynı olduğunu doğrular — ikisi sessizce ayrılamaz.
+
+Henüz **yok**: mesh çıkarma, cook biçimi, skinned render. Plan spike sonrası
+birlikte güncellenecek; bunlara şimdi kod yazma.
+
+## Kapsam sınırı
+
+**Yok**: pathfinding, savaş, bina, kaynak, ağ, kahraman, horde, WASM,
+masaüstü kabuğu, launcher'ın seçim/başlatma yarısı. İleride lazım olacak diye
+klasör veya arayüz açma.

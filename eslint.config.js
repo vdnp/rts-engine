@@ -16,7 +16,18 @@ const ALL_PACKAGES = [
   'engine',
   'core-present',
   'app',
+  'formats',
 ];
+
+/**
+ * Tarayicida calisan paketler.
+ *
+ * `formats` BU LISTEDE YOKTUR: orijinal oyunun dosya bicimlerini cozer ve
+ * yalnizca derleme zamani araclari icindir. Calisma aninda yalnizca kendi
+ * pismis bicimimiz okunur. `app` bile onu import edemez — izin listesi
+ * bu yuzden ALL_PACKAGES degil, RUNTIME_PACKAGES.
+ */
+const RUNTIME_PACKAGES = ALL_PACKAGES.filter((name) => name !== 'formats');
 
 /**
  * Katman bağımlılık matrisi. Bağımlılık yönü tek taraflıdır:
@@ -26,6 +37,8 @@ const ALL_PACKAGES = [
  */
 const LAYERS = {
   'sim-math': { dir: 'packages/sim-math', allow: [] },
+  // Orijinal oyun bicimlerini cozer. Hicbir @bfme/* paketine bagimli degil.
+  formats: { dir: 'packages/formats', allow: [] },
   schema: { dir: 'packages/schema', allow: ['sim-math'] },
   modloader: { dir: 'packages/modloader', allow: ['schema', 'sim-math'] },
   'core-sim': { dir: 'packages/core-sim', allow: ['sim-math', 'schema'] },
@@ -34,7 +47,7 @@ const LAYERS = {
     dir: 'packages/core-present',
     allow: ['sim-math', 'schema', 'core-sim', 'engine'],
   },
-  app: { dir: 'packages/app', allow: ALL_PACKAGES },
+  app: { dir: 'packages/app', allow: RUNTIME_PACKAGES },
   replay: {
     dir: 'tools/replay',
     allow: ['sim-math', 'schema', 'modloader', 'core-sim'],
@@ -43,7 +56,7 @@ const LAYERS = {
   // devctl icerigi DENETLER, calistirmaz: sim'e hic dokunmaz.
   devctl: {
     dir: 'tools/devctl',
-    allow: ['schema', 'modloader'],
+    allow: ['schema', 'modloader', 'formats'],
     allowNode: true,
   },
 };
@@ -280,7 +293,11 @@ export default defineConfig(
   {
     files: ['packages/app/vite/**/*.ts', 'packages/app/vite.config.ts'],
     rules: {
-      'no-restricted-imports': importRule({ self: 'app', allow: ALL_PACKAGES, allowNode: true }),
+      'no-restricted-imports': importRule({
+        self: 'app',
+        allow: RUNTIME_PACKAGES,
+        allowNode: true,
+      }),
     },
   },
 

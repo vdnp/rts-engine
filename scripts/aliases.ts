@@ -17,6 +17,7 @@ export const LIBRARY_PACKAGES = [
   'core-sim',
   'engine',
   'core-present',
+  'formats',
 ] as const;
 
 export const workspaceAlias: Record<string, string> = Object.fromEntries(

@@ -87,6 +87,8 @@ importers:
         specifier: 9.27.1
         version: 9.27.1
 
+  packages/formats: {}
+
   packages/modloader:
     dependencies:
       '@bfme/schema':
@@ -115,6 +117,9 @@ importers:
 
   tools/devctl:
     dependencies:
+      '@bfme/formats':
+        specifier: workspace:*
+        version: link:../../packages/formats
       '@bfme/modloader':
         specifier: workspace:*
         version: link:../../packages/modloader

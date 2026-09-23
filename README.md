@@ -3,8 +3,14 @@
 Battle for Middle-earth / Rise of the Witch-king tarzı bir RTS için, sıfırdan yazılmış
 deterministik bir oyun motoru. TypeScript, Vite, Babylon.js.
 
-**Durum: Faz 0** — ekranda zemin ve interpolasyonlu hareket eden kutular. Mimari
-iskelet yerinde, oyun kuralları henüz yok.
+**Durum: Faz 1 (spike)** — Faz 0 tamamlandı: ekranda zemin ve interpolasyonlu
+hareket eden kutular, deterministik simülasyon, sekiz aşamalı mod yükleyici.
+Şu an orijinal oyunun dosya biçimleri (BIG arşiv, W3D chunk ağacı) çözülüyor;
+bu aşama ekrana henüz hiçbir şey çizmiyor.
+
+Dosya biçimleri **topluluk dokümantasyonundan ve dosyanın kendisinden**
+çözülür; orijinal oyunun binary'si decompile veya disassemble edilmez.
+Test fixture'ları kendi yazıcımızla üretilir ve repoya girer.
 
 ## Hukuki durum
 
@@ -48,6 +54,8 @@ pnpm dev
 | `pnpm replay --seed 42 --ticks 10000` | headless determinizm doğrulayıcı         |
 | `pnpm devctl mods`                    | içerik paketleri ve yükleme sırası       |
 | `pnpm devctl validate --mods base`    | içerik doğrulayıcı (hata varsa exit 1)   |
+| `pnpm devctl big ls <arşiv>`          | BIG arşivini listele                     |
+| `pnpm devctl w3d dump <dosya>`        | W3D chunk ağacını yaz                    |
 
 ## Determinizm
 
@@ -77,6 +85,7 @@ packages/
   modloader/      8 aşamalı içerik yükleme boru hattı
   core-sim/       deterministik simülasyon (SoA entity store)
   engine/         render / girdi / dosya soyutlamaları — RTS'i bilmez
+  formats/        BIG / W3D çözücüleri — yalnızca derleme zamanı araçlarında
   core-present/   sim → görsel köprüsü, interpolasyon
   app/            giriş noktası (Vite)
 tools/
