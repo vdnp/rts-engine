@@ -58,7 +58,18 @@ Bağımlılık yönü tek taraflıdır: **content → core → engine**. Ters im
    `packages/engine/src/render/babylon/` altında olabilir.
 9. **Node API'leri `packages/` içinde yok.** Dosya erişimi bir `Source` arayüzü
    üzerinden enjekte edilir (Node impl `tools/`, tarayıcı impl `packages/app/vite/`).
-10. **`@bfme/formats` çalışma anında kullanılmaz.** Orijinal oyunun dosya
+10. **Asset verisi simülasyona GİRMEZ.** Çarpışma yarıçapı, ölçek, hız gibi
+    sim değerleri yalnızca `content/` altındaki TOML'dan gelir; mesh bounding
+    box'ından, kemik uzunluğundan veya başka bir model verisinden **asla**
+    türetilmez. Bir modelin değişmesi sim davranışını değiştiremez — aksi
+    halde determinizm asset dosyalarına bağımlı hale gelir ve replay anlamını
+    yitirir. Modelin görsel ölçek faktörü `core-present` içinde yaşar; sim
+    onu bilmez.
+11. **Katman izinleri varsayılan REDDET.** `LAYERS` tablosundaki `allow`
+    listesinde açıkça yazmayan hiçbir paket import edilemez. Türetilmiş liste
+    (`allow: ALL_PACKAGES` gibi) kullanılmaz: yeni bir paketi sessizce içeri
+    alır. `test/architecture.test.ts` bunu her katman için tek tek sınar.
+12. **`@bfme/formats` çalışma anında kullanılmaz.** Orijinal oyunun dosya
     biçimlerini (BIG, W3D) çözer ve yalnızca derleme zamanı araçları içindir.
     `app` dahil hiçbir runtime paketi onu import edemez; izin araç bazında
     verilir (`LAYERS` tablosu). Çalışma anında yalnızca kendi pişmiş
@@ -164,8 +175,39 @@ kanıtlamaktı.
 - `test/fixtures.test.ts` commit edilmiş fixture'ın üretecin bugünkü
   çıktısıyla birebir aynı olduğunu doğrular — ikisi sessizce ayrılamaz.
 
-Henüz **yok**: mesh çıkarma, cook biçimi, skinned render. Plan spike sonrası
-birlikte güncellenecek; bunlara şimdi kod yazma.
+### Sıradaki dilim: gerçek dosya doğrulaması
+
+Fixture round-trip'i, parser ile yazıcının **birbiriyle** tutarlı olduğunu
+kanıtlar — EA'nın dosyalarıyla tutarlı olduğunu değil. Bu kör nokta
+kapanmadan üstüne inşa edilmez.
+
+- `devctl big scan <dizin>` — arşivleri tara, dosya sayısı, uzantı dağılımı,
+  okunamayan/şüpheli girdiler
+- `devctl w3d survey <dizin>` — bulunan W3D'leri chunk düzeyinde geç:
+  chunk ID histogramı, tanınmayan ID'ler, sürüm alanları, boyut
+  tutarsızlıkları, parse hataları
+
+Rapor çıktısı repoya **girmez**; asset de girmez. Rapora göre fixture
+üreteci düzeltilir: gerçekte görülen chunk çeşitliliğini ve sürüm
+alanlarını kapsasın.
+
+### Sonraki sıra (henüz kod yok)
+
+```
+mesh çıkarma → STATİK mesh ekranda → iskelet → animasyon → skinned
+```
+
+**Statik adım atlanmaz.** Koordinat sistemi (W3D Z-up → Babylon Y-up),
+ölçek ve winding order hatalarını skinning'den ayrı izole etmek için.
+
+### Cook biçimi kısıtları (tasarım ilk mesh çıkınca)
+
+- interleaved vertex + index buffer; çalışma anında **sıfır dönüşüm**
+- tüm blob offset'leri 4 byte hizalı (typed array view zorunluluğu)
+- header: magic + format sürümü + cooker sürümü; uyuşmazsa **reddet**
+- cache anahtarı = `hash(kaynak) + cooker sürümü`
+- mesh / iskelet / animasyon / doku ayrı blob, ID ile referans
+- Faz 1'de sıkıştırma yok; doku DDS olarak kalır
 
 ## Kapsam sınırı
 

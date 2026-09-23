@@ -66,9 +66,13 @@ export function isBigArchive(bytes: Uint8Array): boolean {
 /**
  * Arsiv basligini ve dosya tablosunu okur. Dosya VERİSİ okunmaz.
  *
+ * @param bytes En azindan baslik ve dosya tablosunu kapsayan baytlar.
+ * @param archiveSize Arsivin GERCEK boyutu. Yuz megabaytlik arsivleri
+ *   bellege almadan taramak icin yalnizca bas kismi okunabilir; sinir
+ *   denetimi o zaman tamponun degil dosyanin boyutuna gore yapilmalidir.
  * @throws {BigError} imza taninmazsa veya tablo bozuksa.
  */
-export function readBigArchive(bytes: Uint8Array): BigArchive {
+export function readBigArchive(bytes: Uint8Array, archiveSize = bytes.length): BigArchive {
   if (bytes.length < 16) {
     throw new BigError(`Arsiv cok kisa: ${String(bytes.length)} bayt.`);
   }
@@ -83,7 +87,7 @@ export function readBigArchive(bytes: Uint8Array): BigArchive {
   const entryCount = reader.u32be();
   const dataStart = reader.u32be();
 
-  if (entryCount > bytes.length) {
+  if (entryCount > archiveSize) {
     throw new BigError(`Dosya sayisi (${String(entryCount)}) arsiv boyutundan buyuk; tablo bozuk.`);
   }
 
@@ -92,9 +96,9 @@ export function readBigArchive(bytes: Uint8Array): BigArchive {
     const offset = reader.u32be();
     const size = reader.u32be();
     const name = reader.cstring();
-    if (offset + size > bytes.length) {
+    if (offset + size > archiveSize) {
       throw new BigError(
-        `"${name}" arsiv sinirlarinin disinda: konum ${String(offset)}, boyut ${String(size)}, arsiv ${String(bytes.length)} bayt.`,
+        `"${name}" arsiv sinirlarinin disinda: konum ${String(offset)}, boyut ${String(size)}, arsiv ${String(archiveSize)} bayt.`,
       );
     }
     entries.push({ name, offset, size });

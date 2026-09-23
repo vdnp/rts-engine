@@ -11,6 +11,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ESLint } from 'eslint';
+import { LAYERS } from '../eslint.config.js';
 import tseslint from 'typescript-eslint';
 import { describe, expect, it } from 'vitest';
 
@@ -138,6 +139,70 @@ describe('katman bağımlılık yönü', () => {
       'import "@babylonjs/core";\n',
     );
     expect(rules).toEqual([]);
+  });
+});
+
+describe('varsayilan reddet', () => {
+  /**
+   * Kural bir izin listesidir, kara liste degil.
+   *
+   * Depoya yeni bir paket eklendiginde hicbir katman onu kendiliginden
+   * kabul etmemeli. Bu bir kez ters gitti: `app`'in izin listesi turetilmis
+   * oldugu icin yeni eklenen `formats` sessizce iceri girmisti.
+   */
+  const HAYALI_PAKET = '@bfme/__henuz_yok__';
+
+  it.each(Object.entries(LAYERS))(
+    '%s: tabloda yazmayan bir paketi reddeder',
+    async (_name, layer) => {
+      const rules = await rulesTriggeredBy(
+        `${layer.dir}/src/__probe__.ts`,
+        `import "${HAYALI_PAKET}";\n`,
+      );
+      expect(rules).toContain('no-restricted-imports');
+    },
+  );
+
+  it.each(Object.entries(LAYERS))(
+    '%s: izin listesindeki her paketi kabul eder',
+    async (_name, layer) => {
+      for (const allowed of layer.allow) {
+        const rules = await rulesTriggeredBy(
+          `${layer.dir}/src/__probe__.ts`,
+          `import "@bfme/${allowed}";\n`,
+        );
+        expect(rules, `izinli olmali: ${allowed}`).toEqual([]);
+      }
+    },
+  );
+
+  it.each(Object.entries(LAYERS))(
+    '%s: izin listesinde OLMAYAN her paketi reddeder',
+    async (name, layer) => {
+      const others = Object.keys(LAYERS).filter(
+        (other) =>
+          other !== name &&
+          !layer.allow.includes(other) &&
+          other !== 'replay' &&
+          other !== 'devctl',
+      );
+      for (const denied of others) {
+        const rules = await rulesTriggeredBy(
+          `${layer.dir}/src/__probe__.ts`,
+          `import "@bfme/${denied}";\n`,
+        );
+        expect(rules, `reddedilmeli: ${denied}`).toContain('no-restricted-imports');
+      }
+    },
+  );
+
+  it('izin listeleri turetilmis DEGIL, acikca yazilmis', () => {
+    // `allow: ALL_PACKAGES` gibi bir kisayol, yeni paketi sessizce iceri alir.
+    // Hicbir katman tum paketleri birden kabul etmemeli.
+    const packageNames = Object.keys(LAYERS);
+    for (const [name, layer] of Object.entries(LAYERS)) {
+      expect(layer.allow.length, `${name} her seyi kabul ediyor`).toBeLessThan(packageNames.length);
+    }
   });
 });
 

@@ -7,6 +7,11 @@
  *   pnpm devctl big cat <arsiv> <ad>  bir girdiyi cikar
  *   pnpm devctl w3d dump <dosya>      W3D chunk agaci
  *   pnpm devctl w3d sample <cikti>    ornek W3D fixture'i uret
+ *   pnpm devctl big scan [dizin]      kurulumdaki arsivleri tara
+ *   pnpm devctl w3d survey [dizin]    gercek W3D dosyalarini chunk duzeyinde gec
+ *
+ * `scan` ve `survey` oyuncunun KENDI kurulumunu okur (BFME_GAME_PATH).
+ * Ciktilari depoya girmez; asset de girmez.
  *
  * Oyunu BASLATMAZ. Oyunu acmak `pnpm dev` olarak kalir; bu arac yalnizca
  * icerigi denetler, dolayisiyla uygulamanin yapilandirma yoluna hic dokunmaz.
@@ -20,6 +25,7 @@ import { Command } from 'commander';
 // Node dosya kaynagi replay ile PAYLASILIR; ikinci bir gezici yazilmaz.
 import { nodeSource } from '../../replay/src/nodeSource.ts';
 import { extractEntry, formatBigListing, formatW3dDump, looksLikeBig } from './formats';
+import { formatScan, formatSurvey, scanDirectory, surveyDirectory } from './scan';
 import { inspectContent, inspectMods } from './inspect';
 import { formatMods, formatValidate } from './report';
 
@@ -43,6 +49,17 @@ function parseModList(raw: string | undefined): string[] | undefined {
     .map((mod) => mod.trim())
     .filter((mod) => mod.length > 0);
   return mods.length === 0 ? undefined : mods;
+}
+
+/** Sayisal secenegi ayristirir; bozuksa okunabilir bir hata verir. */
+function parseIntOption(raw: string, name: string, min: number): number {
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < min) {
+    throw new Error(
+      `--${name}: ${String(min)} veya uzeri tam sayi bekleniyordu, "${raw}" bulundu.`,
+    );
+  }
+  return value;
 }
 
 function write(lines: readonly string[]): void {
@@ -134,6 +151,44 @@ big
     );
   });
 
+/** Oyun kurulumunun kok dizini. */
+function defaultGamePath(): string | undefined {
+  const configured = process.env['BFME_GAME_PATH'];
+  return configured === undefined || configured.trim() === '' ? undefined : configured.trim();
+}
+
+/** `--dizin` verilmemisse BFME_GAME_PATH'e duser; ikisi de yoksa hata. */
+function resolveGameRoot(given: string | undefined): string | undefined {
+  const root = given ?? defaultGamePath();
+  if (root === undefined) {
+    process.stderr.write(
+      'Oyun kurulumunun yolu bilinmiyor. Dizini argüman olarak ver ya da ' +
+        'BFME_GAME_PATH ortam degiskenini ayarla.\n',
+    );
+    process.exitCode = 1;
+    return undefined;
+  }
+  return path.resolve(process.cwd(), root);
+}
+
+big
+  .command('scan [dizin]')
+  .description('Kurulumdaki .big arsivlerini tara (varsayilan: BFME_GAME_PATH)')
+  .option('--json', 'ciktiyi JSON olarak yaz', false)
+  .action((dir: string | undefined, options: { json: boolean }) => {
+    const root = resolveGameRoot(dir);
+    if (root === undefined) return;
+
+    const summary = scanDirectory(root);
+    if (options.json) {
+      process.stdout.write(`${JSON.stringify(summary)}
+`);
+    } else {
+      write(formatScan(summary, root));
+    }
+    if (summary.failed > 0 || summary.archives.length === 0) process.exitCode = 1;
+  });
+
 const w3d = program.command('w3d').description('W3D dosyalarini incele');
 
 w3d
@@ -160,6 +215,27 @@ w3d
     writeFileSync(path.resolve(process.cwd(), outPath), bytes);
     process.stderr.write(`${outPath}: ${String(bytes.length)} bayt yazildi
 `);
+  });
+
+w3d
+  .command('survey [dizin]')
+  .description('Gercek W3D dosyalarini chunk duzeyinde gec (varsayilan: BFME_GAME_PATH)')
+  .option('--limit <sayi>', 'en fazla kac dosya incelenecek', '5000')
+  .option('--json', 'ciktiyi JSON olarak yaz', false)
+  .action((dir: string | undefined, options: { limit: string; json: boolean }) => {
+    const root = resolveGameRoot(dir);
+    if (root === undefined) return;
+
+    const limit = parseIntOption(options.limit, 'limit', 1);
+    const report = surveyDirectory(root, limit);
+    if (options.json) {
+      process.stdout.write(`${JSON.stringify(report)}
+`);
+    } else {
+      write(formatSurvey(report, root));
+    }
+    // Ayristirma hatasi varsayimlarimizin tutmadigi anlamina gelir.
+    if (report.parseErrors.length > 0) process.exitCode = 1;
   });
 
 try {

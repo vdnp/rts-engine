@@ -8,36 +8,27 @@ import tseslint from 'typescript-eslint';
  * dosya grubu için tek seferde, birleştirilmiş olarak tanımlanır.
  */
 
-const ALL_PACKAGES = [
-  'sim-math',
-  'schema',
-  'modloader',
-  'core-sim',
-  'engine',
-  'core-present',
-  'app',
-  'formats',
-];
-
 /**
- * Tarayicida calisan paketler.
+ * Katman bagimlilik matrisi — VARSAYILAN REDDET.
  *
- * `formats` BU LISTEDE YOKTUR: orijinal oyunun dosya bicimlerini cozer ve
- * yalnizca derleme zamani araclari icindir. Calisma aninda yalnizca kendi
- * pismis bicimimiz okunur. `app` bile onu import edemez — izin listesi
- * bu yuzden ALL_PACKAGES degil, RUNTIME_PACKAGES.
- */
-const RUNTIME_PACKAGES = ALL_PACKAGES.filter((name) => name !== 'formats');
-
-/**
- * Katman bağımlılık matrisi. Bağımlılık yönü tek taraflıdır:
- * content -> core -> engine. Ters import yasak.
+ * `allow` listesinde ACIKCA yazmayan hicbir `@bfme/*` paketi import
+ * edilemez. Kural bir izin listesi olarak kurulur (`@bfme/*` yasak, izinli
+ * olanlar `!` ile geri alinir), dolayisiyla depoya yeni bir paket
+ * eklendiginde HICBIR katman onu kendiliginden kabul etmez. Once buraya
+ * yazilmasi gerekir.
+ *
+ * Turetilmis liste KULLANILMAZ: `allow: ALL_PACKAGES` gibi bir kisayol,
+ * yeni paketi sessizce iceri alir. Bu acik bir kez gerceklesti (app formats'i
+ * otomatik kabul etmisti) ve `test/architecture.test.ts` artik bunu
+ * her katman icin tek tek siniyor.
+ *
+ * Yon tek taraflidir: content -> core -> engine.
  *
  * @type {Record<string, { dir: string; allow: readonly string[]; allowNode?: boolean }>}
  */
-const LAYERS = {
+export const LAYERS = {
   'sim-math': { dir: 'packages/sim-math', allow: [] },
-  // Orijinal oyun bicimlerini cozer. Hicbir @bfme/* paketine bagimli degil.
+  // Orijinal oyun bicimlerini cozer; yalnizca derleme zamani araclarinda.
   formats: { dir: 'packages/formats', allow: [] },
   schema: { dir: 'packages/schema', allow: ['sim-math'] },
   modloader: { dir: 'packages/modloader', allow: ['schema', 'sim-math'] },
@@ -47,13 +38,17 @@ const LAYERS = {
     dir: 'packages/core-present',
     allow: ['sim-math', 'schema', 'core-sim', 'engine'],
   },
-  app: { dir: 'packages/app', allow: RUNTIME_PACKAGES },
+  // Her paket TEK TEK yazilir; turetilmis liste kullanilmaz.
+  app: {
+    dir: 'packages/app',
+    allow: ['sim-math', 'schema', 'modloader', 'core-sim', 'engine', 'core-present'],
+  },
   replay: {
     dir: 'tools/replay',
     allow: ['sim-math', 'schema', 'modloader', 'core-sim'],
     allowNode: true,
   },
-  // devctl icerigi DENETLER, calistirmaz: sim'e hic dokunmaz.
+  // devctl icerigi ve dosya bicimlerini DENETLER, calistirmaz.
   devctl: {
     dir: 'tools/devctl',
     allow: ['schema', 'modloader', 'formats'],
@@ -81,19 +76,22 @@ const BABYLON_IMPORTS = {
  * @returns {import('eslint').Linter.RuleEntry}
  */
 function importRule({ self, allow, allowNode = false, allowBabylon = false }) {
-  const patterns = [];
-  if (!allowNode) patterns.push(NODE_IMPORTS);
-  if (!allowBabylon) patterns.push(BABYLON_IMPORTS);
-  return [
-    'error',
+  // VARSAYILAN REDDET: once tum @bfme/* yasaklanir, izinliler `!` ile geri
+  // alinir. Boylece yeni bir paket hicbir listeye kendiliginden giremez.
+  const permitted = [self, ...allow];
+  const patterns = [
     {
-      paths: ALL_PACKAGES.filter((p) => p !== self && !allow.includes(p)).map((p) => ({
-        name: `@bfme/${p}`,
-        message: `Katman ihlali: ${self} paketi @bfme/${p} paketini import edemez. Bagimlilik yonu content -> core -> engine.`,
-      })),
-      patterns,
+      group: ['@bfme/*', ...permitted.map((name) => `!@bfme/${name}`)],
+      message:
+        `Katman ihlali: ${self} yalnizca su paketleri import edebilir: ` +
+        `${allow.length === 0 ? '(hicbiri)' : allow.join(', ')}. ` +
+        'Yeni paketler varsayilan olarak reddedilir; izin eslint.config.js icindeki ' +
+        'LAYERS tablosuna acikca eklenir.',
     },
   ];
+  if (!allowNode) patterns.push(NODE_IMPORTS);
+  if (!allowBabylon) patterns.push(BABYLON_IMPORTS);
+  return ['error', { patterns }];
 }
 
 /** Simülasyonun dokunmasının yasak olduğu global'ler. */
@@ -295,7 +293,7 @@ export default defineConfig(
     rules: {
       'no-restricted-imports': importRule({
         self: 'app',
-        allow: RUNTIME_PACKAGES,
+        allow: LAYERS['app']?.allow ?? [],
         allowNode: true,
       }),
     },
