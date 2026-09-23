@@ -33,6 +33,30 @@ importers:
         specifier: 5.0.1
         version: 5.0.1(@types/node@22.20.4)(@vitest/coverage-v8@5.0.1)(vite@8.3.0(@types/node@22.20.4))
 
+  packages/app:
+    dependencies:
+      '@bfme/core-present':
+        specifier: workspace:*
+        version: link:../core-present
+      '@bfme/core-sim':
+        specifier: workspace:*
+        version: link:../core-sim
+      '@bfme/engine':
+        specifier: workspace:*
+        version: link:../engine
+      '@bfme/modloader':
+        specifier: workspace:*
+        version: link:../modloader
+      '@bfme/schema':
+        specifier: workspace:*
+        version: link:../schema
+      '@bfme/sim-math':
+        specifier: workspace:*
+        version: link:../sim-math
+      zod:
+        specifier: 4.6.5
+        version: 4.6.5
+
   packages/core-present:
     dependencies:
       '@bfme/core-sim':

@@ -269,9 +269,10 @@ export default defineConfig(
       'no-restricted-imports': importRule({ self: 'engine', allow: [], allowBabylon: true }),
     },
   },
-  // Vite eklentileri derleme zamanı kodudur, Node API kullanabilir.
+  // Vite konfigi ve eklentileri DERLEME ZAMANI kodudur: Vite'in kendi
+  // surecinde calisirlar, tarayiciya hic gitmezler. Node API kullanabilirler.
   {
-    files: ['packages/app/vite/**/*.ts'],
+    files: ['packages/app/vite/**/*.ts', 'packages/app/vite.config.ts'],
     rules: {
       'no-restricted-imports': importRule({ self: 'app', allow: ALL_PACKAGES, allowNode: true }),
     },

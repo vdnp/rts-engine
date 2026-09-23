@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "types": ["vite/client", "node"],
+    "paths": {
+      "@bfme/sim-math": ["../sim-math/src/index.ts"],
+      "@bfme/schema": ["../schema/src/index.ts"],
+      "@bfme/modloader": ["../modloader/src/index.ts"],
+      "@bfme/core-sim": ["../core-sim/src/index.ts"],
+      "@bfme/engine": ["../engine/src/index.ts"],
+      "@bfme/core-present": ["../core-present/src/index.ts"]
+    }
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts", "vite/**/*.ts", "vite.config.ts"]
+}

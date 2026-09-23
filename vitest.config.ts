@@ -1,5 +1,5 @@
 import { defineConfig } from 'vitest/config';
-import { workspaceAlias } from './scripts/aliases.mjs';
+import { workspaceAlias } from './scripts/aliases.ts';
 
 export default defineConfig({
   resolve: { alias: workspaceAlias },
